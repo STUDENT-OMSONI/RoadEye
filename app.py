@@ -71,31 +71,27 @@ OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 REPORT_FOLDER.mkdir(exist_ok=True)
 
 # ------------------------------------------------------------------------------
-# 3. Pre-Warmed YOLO Model Engine (Sub-second inference & zero request latency)
+# 3. Process-Safe YOLO Model Loader (Guarantees zero OpenMP fork deadlocks)
 # ------------------------------------------------------------------------------
-if not MODEL_PATH.exists():
-    raise FileNotFoundError(f"Model file not found at: {MODEL_PATH}")
-
-from ultralytics import YOLO
-
-# Pre-load YOLO weights at startup once
-model = YOLO(str(MODEL_PATH))
-
-# Warm up with a tiny dummy inference so PyTorch initializes graphs at boot, NOT during HTTP requests
-try:
-    dummy_frame = np.zeros((64, 64, 3), dtype=np.uint8)
-    with torch.inference_mode():
-        model.predict(source=dummy_frame, imgsz=64, verbose=False)
-    del dummy_frame
-    gc.collect()
-except Exception:
-    pass
-
+_model_instance = None
 _model_lock = threading.Lock()
 
 
 def get_model():
-    return model
+    """
+    Thread-safe model loader loaded inside worker process (post-fork).
+    Guarantees that PyTorch C++ OpenMP runtime is never corrupted by Gunicorn process forks.
+    """
+    global _model_instance
+    if _model_instance is None:
+        with _model_lock:
+            if _model_instance is None:
+                if not MODEL_PATH.exists():
+                    raise FileNotFoundError(f"Model file not found at: {MODEL_PATH}")
+                from ultralytics import YOLO
+
+                _model_instance = YOLO(str(MODEL_PATH))
+    return _model_instance
 
 
 # ------------------------------------------------------------------------------
@@ -153,9 +149,11 @@ def detect_on_frame(frame, conf_threshold=0.25):
     else:
         proc_frame = frame
 
+    yolo_model = get_model()
+
     with _model_lock:
         with torch.inference_mode():
-            results = model.predict(
+            results = yolo_model.predict(
                 source=proc_frame,
                 conf=conf_threshold,
                 imgsz=640,
