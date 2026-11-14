@@ -4,8 +4,10 @@
 
 @layer base {
   html {
-    scroll-behavior: smooth;
+    scroll-behavior: auto !important; /* Prevents dual-interpolation conflict with JS kinetic engine */
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   body {
     margin: 0;

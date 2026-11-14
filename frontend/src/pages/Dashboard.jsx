@@ -102,7 +102,11 @@ export default function Dashboard() {
   const scrollToHowItWorks = () => {
     const el = document.getElementById('how-it-works');
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
+      if (typeof window !== 'undefined' && window.smoothScrollTo) {
+        window.smoothScrollTo(el.offsetTop - 70);
+      } else {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   };
 

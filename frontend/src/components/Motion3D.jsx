@@ -8,9 +8,9 @@ import { motion } from 'framer-motion';
 export function Click3D({
   children,
   className = '',
-  scaleDown = 0.93,
-  depth = -18,
-  tiltX = -6,
+  scaleDown = 0.94,
+  depth = -10,
+  tiltX = -3,
   fullWidth = false,
   onClick,
   ...props
@@ -18,29 +18,24 @@ export function Click3D({
   return (
     <motion.div
       style={{
-        transformStyle: 'preserve-3d',
-        perspective: 800,
         display: fullWidth ? 'block' : 'inline-block',
         width: fullWidth ? '100%' : 'auto',
       }}
       whileHover={{
-        scale: 1.025,
-        y: -3,
-        z: 14,
-        transition: { type: 'spring', stiffness: 450, damping: 20 },
+        scale: 1.02,
+        y: -1.5,
+        transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] },
       }}
       whileTap={{
         scale: scaleDown,
-        y: 2,
-        z: depth,
-        rotateX: tiltX,
-        transition: { type: 'spring', stiffness: 600, damping: 15 },
+        y: 1,
+        transition: { duration: 0.1, ease: 'easeOut' },
       }}
       onClick={onClick}
       className={`cursor-pointer select-none ${fullWidth ? 'w-full' : ''} ${className}`}
       {...props}
     >
-      <div style={{ transform: 'translateZ(12px)', width: fullWidth ? '100%' : 'auto' }}>
+      <div style={{ width: fullWidth ? '100%' : 'auto' }}>
         {children}
       </div>
     </motion.div>
@@ -94,21 +89,14 @@ export function Item3D({
   const itemVariants = {
     hidden: {
       opacity: 0,
-      y: 28,
-      scale: 0.95,
-      rotateX: 10,
-      z: -50,
+      y: 16,
     },
     show: {
       opacity: 1,
       y: 0,
-      scale: 1,
-      rotateX: 0,
-      z: 0,
       transition: {
-        type: 'spring',
-        stiffness: 260,
-        damping: 24,
+        duration: 0.5,
+        ease: [0.16, 1, 0.3, 1],
       },
     },
   };
@@ -116,29 +104,18 @@ export function Item3D({
   return (
     <motion.div
       variants={itemVariants}
-      style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
       whileHover={
-        tiltOnHover
-          ? {
-              y: -5,
-              scale: 1.02,
-              z: 18,
-              rotateX: 3,
-              transition: { type: 'spring', stiffness: 350, damping: 20 },
-            }
-          : hoverLift
+        hoverLift
           ? {
               y: -2,
-              transition: { type: 'spring', stiffness: 400, damping: 25 },
+              transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] },
             }
           : {}
       }
       className={className}
       {...props}
     >
-      <div style={{ transform: 'translateZ(8px)' }}>
-        {children}
-      </div>
+      <div>{children}</div>
     </motion.div>
   );
 }

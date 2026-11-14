@@ -18,43 +18,27 @@ import { Moon, Sun } from 'lucide-react';
 import { WaterRippleCanvas } from './components/WaterEngine';
 import { ScrollProgressBar, SmoothKineticScroll } from './components/SmoothScroll';
 
-// Animated Route transitions with real 3D perspective depth and spring physics
+// Animated Route transitions with sleek, buttery-smooth cross-fade and elevation
 function AnimatedRoutes({ backendStatus }) {
   const location = useLocation();
 
+  // Reset scroll smoothly on route navigation
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [location.pathname]);
+
   return (
-    <div style={{ perspective: 1400 }} className="w-full min-h-[calc(100vh-160px)]">
+    <div className="w-full min-h-[calc(100vh-160px)]">
       <AnimatePresence mode="wait">
         <motion.div
           key={location.pathname}
-          initial={{
-            opacity: 0,
-            scale: 0.93,
-            rotateX: 6,
-            z: -80,
-            y: 24,
-          }}
-          animate={{
-            opacity: 1,
-            scale: 1,
-            rotateX: 0,
-            z: 0,
-            y: 0,
-          }}
-          exit={{
-            opacity: 0,
-            scale: 0.94,
-            rotateX: -6,
-            z: -100,
-            y: -20,
-          }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
           transition={{
-            type: 'spring',
-            stiffness: 240,
-            damping: 24,
-            mass: 0.8,
+            duration: 0.32,
+            ease: [0.22, 1, 0.36, 1], // easeOutQuart: silky-smooth deceleration
           }}
-          style={{ transformStyle: 'preserve-3d', transformOrigin: 'top center' }}
           className="w-full"
         >
           <Routes location={location}>

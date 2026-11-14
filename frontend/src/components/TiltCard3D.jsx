@@ -17,8 +17,8 @@ export default function TiltCard3D({
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
-  // Smooth springs for fluid, physics-based rotation
-  const springConfig = { damping: 22, stiffness: 300, mass: 0.5 };
+  // Smooth springs for fluid, physics-based rotation with luxurious damping
+  const springConfig = { damping: 28, stiffness: 180, mass: 0.5 };
   const smoothMouseX = useSpring(mouseX, springConfig);
   const smoothMouseY = useSpring(mouseY, springConfig);
 

@@ -8,23 +8,28 @@ import { motion, useScroll, useSpring } from 'framer-motion';
 export function ScrollProgressBar() {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
-    stiffness: 140,
-    damping: 26,
+    stiffness: 120,
+    damping: 30,
     restDelta: 0.001,
   });
 
   return (
     <motion.div
       style={{ scaleX, transformOrigin: '0%' }}
-      className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#ea580c] via-amber-500 to-sky-400 z-50 pointer-events-none shadow-[0_0_10px_rgba(234,88,12,0.7)]"
+      className="fixed top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-[#ea580c] via-amber-500 to-sky-400 z-50 pointer-events-none shadow-[0_0_8px_rgba(234,88,12,0.6)]"
     />
   );
 }
 
 /**
- * 2. SMOOTH KINETIC SCROLL ENGINE
- * Provides butter-smooth, silky momentum damping for mouse wheel navigation on desktop.
- * Transforms choppy 100px clicks into luxurious 60FPS fluid motion.
+ * 2. LENIS-GRADE ULTRA-SMOOTH KINETIC SCROLL ENGINE
+ * Transforms stepped mouse wheel clicks into silky-smooth 60/120FPS momentum gliding.
+ * Features:
+ * - Delta normalization across all browsers (Chrome, Firefox, Safari) and deltaModes (pixels, lines, pages).
+ * - Automatic precision trackpad detection to preserve native hardware inertia without fighting the OS.
+ * - Exponential deceleration (lerp = 0.08) for luxurious, frictionless motion.
+ * - Zero CPU/GPU drain when idle (cancels RAF loop as soon as resting position is reached).
+ * - Global window.smoothScrollTo API for programmatic smooth section navigation.
  */
 export function SmoothKineticScroll() {
   useEffect(() => {
@@ -33,54 +38,89 @@ export function SmoothKineticScroll() {
 
     let targetY = window.scrollY;
     let currentY = window.scrollY;
-    let isTicking = false;
+    let isRunning = false;
     let rafId = null;
 
-    const ease = 0.09; // Silky smooth damping factor
+    // Silkiness factor: 0.085 provides luxurious, Apple-grade momentum damping
+    const lerp = 0.085;
 
-    const updateScroll = () => {
+    const clamp = (val, min, max) => Math.max(min, Math.min(val, max));
+
+    const getMaxScroll = () =>
+      Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+
+    const update = () => {
       const diff = targetY - currentY;
-      if (Math.abs(diff) > 0.5) {
-        currentY += diff * ease;
-        window.scrollTo(0, Math.round(currentY));
-        rafId = requestAnimationFrame(updateScroll);
+
+      if (Math.abs(diff) > 0.4) {
+        currentY += diff * lerp;
+        window.scrollTo(0, currentY);
+        rafId = requestAnimationFrame(update);
       } else {
-        window.scrollTo(0, targetY);
+        // Settled into rest
         currentY = targetY;
-        isTicking = false;
+        window.scrollTo(0, targetY);
+        isRunning = false;
+      }
+    };
+
+    const startLoop = () => {
+      if (!isRunning) {
+        isRunning = true;
+        currentY = window.scrollY;
+        rafId = requestAnimationFrame(update);
       }
     };
 
     const handleWheel = (e) => {
-      // Don't intercept if scrolling inside scrollable containers like textareas or code blocks
+      // Don't intercept if scrolling inside scrollable containers (e.g. modals, code boxes, textareas)
       const path = e.composedPath ? e.composedPath() : [];
       for (const el of path) {
         if (el instanceof HTMLElement && el !== document.body && el !== document.documentElement) {
-          const hasScroll = el.scrollHeight > el.clientHeight;
-          const overflowY = window.getComputedStyle(el).overflowY;
-          if (hasScroll && (overflowY === 'auto' || overflowY === 'scroll')) {
-            return; // let native inner scroll work
+          const style = window.getComputedStyle(el);
+          const canScrollY = el.scrollHeight > el.clientHeight;
+          if (canScrollY && (style.overflowY === 'auto' || style.overflowY === 'scroll')) {
+            return; // Allow native inner container scrolling
           }
         }
       }
 
-      e.preventDefault();
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      targetY = Math.max(0, Math.min(targetY + e.deltaY * 0.9, maxScroll));
-
-      if (!isTicking) {
-        isTicking = true;
-        currentY = window.scrollY;
-        rafId = requestAnimationFrame(updateScroll);
+      // Normalize delta based on deltaMode (0 = pixels, 1 = lines, 2 = pages)
+      let delta = e.deltaY;
+      if (e.deltaMode === 1) {
+        delta *= 38; // Normal line height
+      } else if (e.deltaMode === 2) {
+        delta *= window.innerHeight; // Full page
       }
+
+      // Precision trackpads emit continuous small deltas with fractional values.
+      // Allow precision trackpads to use native OS fluid physics.
+      const isPrecisionTrackpad = Math.abs(delta) < 14 || Math.abs(delta) % 1 !== 0;
+      if (isPrecisionTrackpad) {
+        // Update targets so subsequent wheel turns stay synchronized
+        targetY = window.scrollY;
+        currentY = window.scrollY;
+        return;
+      }
+
+      e.preventDefault();
+
+      // Mouse wheel stepped notch: Apply momentum impulse with friction
+      targetY = clamp(targetY + delta * 1.05, 0, getMaxScroll());
+      startLoop();
     };
 
-    // Update target on direct programmatic or bar scroll
     const handleScroll = () => {
-      if (!isTicking) {
+      if (!isRunning) {
         targetY = window.scrollY;
         currentY = window.scrollY;
       }
+    };
+
+    // Expose global smooth scroll function for buttons/links
+    window.smoothScrollTo = (toY, duration = 650) => {
+      targetY = clamp(toY, 0, getMaxScroll());
+      startLoop();
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false });
@@ -90,6 +130,7 @@ export function SmoothKineticScroll() {
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('scroll', handleScroll);
       if (rafId) cancelAnimationFrame(rafId);
+      delete window.smoothScrollTo;
     };
   }, []);
 
@@ -97,26 +138,25 @@ export function SmoothKineticScroll() {
 }
 
 /**
- * 3. SCROLL REVEAL WRAPPER
- * Smoothly floats sections and cards into view with 3D perspective and spring physics.
+ * 3. BUTTERY SCROLL REVEAL WRAPPER
+ * Smoothly floats sections and cards into view using Apple/Stripe ease-out cubic-bezier curves.
+ * Eliminates spring jitter and oscillations for silky, premium transitions.
  */
 export function ScrollReveal({
   children,
   delay = 0,
-  yOffset = 32,
+  yOffset = 24,
   className = '',
   ...props
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: yOffset, scale: 0.98 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, margin: '-60px' }}
+      initial={{ opacity: 0, y: yOffset }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }}
       transition={{
-        type: 'spring',
-        stiffness: 240,
-        damping: 24,
-        mass: 0.8,
+        duration: 0.65,
+        ease: [0.16, 1, 0.3, 1], // easeOutExpo: decelerates smoothly with zero vibration
         delay,
       }}
       className={className}
@@ -126,4 +166,3 @@ export function ScrollReveal({
     </motion.div>
   );
 }
-
