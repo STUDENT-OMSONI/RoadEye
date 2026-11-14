@@ -108,9 +108,7 @@ export const api = {
     }
 
     try {
-      const response = await client.post('/api/predict-image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const response = await client.post('/api/predict-image', formData);
       return response.data;
     } catch (err) {
       // If Render instance was asleep (502, 503, 504), automatically retry once after a short 2.5s delay
@@ -141,7 +139,6 @@ export const api = {
 
     try {
       const response = await client.post('/api/predict-video', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {
           if (onProgress && progressEvent.total) {
             const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);

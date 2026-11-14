@@ -139,7 +139,9 @@ export default function AIDetection({ backendStatus }) {
       let errMsg = err.response?.data?.error;
       if (!errMsg) {
         if (err.response?.status === 502 || err.response?.status === 504) {
-          errMsg = 'Server is warming up (Render free tier cold start). Please wait 10-15 seconds and tap Detect again.';
+          errMsg = `Server is warming up (Render free tier cold start, HTTP ${err.response?.status}). Please wait 10-15 seconds and tap Detect again.`;
+        } else if (err.response?.status) {
+          errMsg = `Server returned HTTP ${err.response.status}. Please check Render dashboard Logs.`;
         } else {
           errMsg = err.message || 'Detection failed. Ensure backend is running.';
         }

@@ -11,6 +11,11 @@ os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 # Limit glibc memory arena fragmentation on Linux containers
 os.environ["MALLOC_ARENA_MAX"] = os.environ.get("MALLOC_ARENA_MAX", "2")
+# Completely disable Ultralytics network calls, telemetry, and auto-downloads
+os.environ["YOLO_VERBOSE"] = "False"
+os.environ["ULTRALYTICS_AUTOINSTALL"] = "0"
+import tempfile
+os.environ["YOLO_CONFIG_DIR"] = tempfile.gettempdir()
 
 import gc
 import uuid
@@ -135,7 +140,7 @@ def detect_on_frame(frame, conf_threshold=0.25):
     Optimizations:
     - Downscales frame to 640px (YOLOv8 native resolution) for 2x faster inference.
     - Runs under torch.inference_mode() with thread locking to prevent concurrent memory overlap.
-    - Uses result.plot() for high-contrast, scalable, clear bounding box rendering.
+    - Pure OpenCV box & badge rendering (eliminates result.plot font download delays).
     - Explicitly frees PyTorch tensors and triggers garbage collection.
     """
     h, w = frame.shape[:2]
@@ -159,9 +164,7 @@ def detect_on_frame(frame, conf_threshold=0.25):
 
     result = results[0]
     detections = []
-
-    # Clean bounding box visualization directly on proc_frame
-    annotated_frame = result.plot(line_width=2)
+    annotated_frame = frame.copy()
 
     if result.boxes is not None and len(result.boxes) > 0:
         for i, box in enumerate(result.boxes, start=1):
@@ -186,8 +189,27 @@ def detect_on_frame(frame, conf_threshold=0.25):
                 "height": y2 - y1
             })
 
-    if scale != 1.0:
-        annotated_frame = cv2.resize(annotated_frame, (w, h), interpolation=cv2.INTER_LINEAR)
+            # Pure OpenCV high-contrast neon orange bounding box (BGR: 12, 88, 234)
+            box_thickness = max(2, int(max(h, w) / 350))
+            cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (12, 88, 234), box_thickness)
+
+            # High-visibility badge
+            label = f"Pothole {int(conf * 100)}%"
+            font_scale = max(0.4, min(0.8, max(h, w) / 1000))
+            (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
+            badge_y1 = max(0, y1 - th - 8)
+            badge_y2 = y1
+            cv2.rectangle(annotated_frame, (x1, badge_y1), (x1 + tw + 10, badge_y2), (12, 88, 234), -1)
+            cv2.putText(
+                annotated_frame,
+                label,
+                (x1 + 5, y1 - 4),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                font_scale,
+                (255, 255, 255),
+                1,
+                cv2.LINE_AA
+            )
 
     del results
     return annotated_frame, detections
