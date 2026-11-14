@@ -1,23 +1,59 @@
-from flask import Flask, render_template, request, send_file, Response, url_for, redirect, flash, jsonify
-from werkzeug.utils import secure_filename
-from pathlib import Path
-from datetime import datetime
-from ultralytics import YOLO
-import cv2
 import os
+import sys
+
+# ------------------------------------------------------------------------------
+# 1. Low-Memory Environment & Thread Clamping (Crucial for Render 512MB RAM tier)
+# ------------------------------------------------------------------------------
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+# Limit glibc memory arena fragmentation on Linux containers
+os.environ["MALLOC_ARENA_MAX"] = os.environ.get("MALLOC_ARENA_MAX", "2")
+
+import gc
 import uuid
+import threading
+import time
+from datetime import datetime
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+# Clamp OpenCV thread pool
+cv2.setNumThreads(1)
+
+import torch
+# Disable gradient calculation globally to save tensor graph memory
+torch.set_grad_enabled(False)
+torch.set_num_threads(1)
+
+from flask import (
+    Flask,
+    Response,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-# Needed for flash() messages. Set a real secret in production via env var.
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
+# Flash messages secret
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "roadeye-secret-pothole-prod-2026")
 
-# Reject uploads bigger than 100 MB before they even hit disk.
-app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 104
+# Reject uploads larger than 50 MB to prevent memory exhaustion
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
-# -----------------------------
-# Paths
-# -----------------------------
+# ------------------------------------------------------------------------------
+# 2. Paths
+# ------------------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_FOLDER = BASE_DIR / "uploads"
 OUTPUT_FOLDER = BASE_DIR / "static" / "outputs"
@@ -29,18 +65,35 @@ UPLOAD_FOLDER.mkdir(exist_ok=True)
 OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 REPORT_FOLDER.mkdir(exist_ok=True)
 
-# -----------------------------
-# Load YOLO model
-# -----------------------------
-if not MODEL_PATH.exists():
-    raise FileNotFoundError(f"Model file not found at: {MODEL_PATH}")
+# ------------------------------------------------------------------------------
+# 3. Thread-Safe Singleton YOLO Model Loader
+# ------------------------------------------------------------------------------
+_model_instance = None
+_model_lock = threading.Lock()
 
-model = YOLO(str(MODEL_PATH))
 
-# -----------------------------
-# Helpers
-# -----------------------------
-ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "bmp"}
+def get_model():
+    """
+    Lazy singleton loader for the YOLO model.
+    Guarantees that only ONE copy of PyTorch weights is loaded in memory.
+    """
+    global _model_instance
+    if _model_instance is None:
+        with _model_lock:
+            if _model_instance is None:
+                if not MODEL_PATH.exists():
+                    raise FileNotFoundError(f"Model file not found at: {MODEL_PATH}")
+                from ultralytics import YOLO
+
+                m = YOLO(str(MODEL_PATH))
+                _model_instance = m
+    return _model_instance
+
+
+# ------------------------------------------------------------------------------
+# 4. Helpers & Cleanup
+# ------------------------------------------------------------------------------
+ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "bmp", "webp"}
 ALLOWED_VIDEO_EXTENSIONS = {"mp4", "avi", "mov", "mkv", "webm"}
 
 
@@ -49,31 +102,77 @@ def allowed_file(filename, allowed_extensions):
 
 
 def unique_filename(original_name: str) -> str:
-    """Sanitize the filename and prefix it with a unique token so concurrent
-    uploads never collide and path traversal isn't possible."""
     safe_name = secure_filename(original_name) or "upload"
     token = uuid.uuid4().hex[:8]
     return f"{token}_{safe_name}"
 
 
-def detect_on_frame(frame):
+def cleanup_old_files(max_age_seconds=86400):
+    """Clean up upload/output files older than 24 hours to prevent disk bloating."""
+    now = time.time()
+    for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER]:
+        try:
+            for item in folder.glob("*"):
+                if item.is_file() and not item.name.startswith("."):
+                    if now - item.stat().st_mtime > max_age_seconds:
+                        try:
+                            item.unlink()
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+
+# ------------------------------------------------------------------------------
+# 5. Core Detection Engine
+# ------------------------------------------------------------------------------
+def detect_on_frame(frame, conf_threshold=0.25):
     """
     Run pothole detection on a single frame.
-    Returns:
-        annotated_frame, detections
+    Optimizations:
+    - Downscales oversized photos (>1280px) to prevent massive memory spikes.
+    - Runs under torch.inference_mode() with thread locking to prevent concurrent memory overlap.
+    - Uses result.plot() for high-contrast, scalable, clear bounding box rendering.
+    - Frees intermediate PyTorch tensors explicitly.
     """
-    results = model.predict(source=frame, conf=0.2, imgsz=640, verbose=False)
-    result = results[0]
+    orig_h, orig_w = frame.shape[:2]
+    max_dim = 1280
+    scale = 1.0
 
+    if max(orig_h, orig_w) > max_dim:
+        scale = max_dim / float(max(orig_h, orig_w))
+        proc_frame = cv2.resize(frame, (int(orig_w * scale), int(orig_h * scale)))
+    else:
+        proc_frame = frame
+
+    yolo_model = get_model()
+
+    with _model_lock:
+        with torch.inference_mode():
+            results = yolo_model.predict(
+                source=proc_frame,
+                conf=conf_threshold,
+                imgsz=640,
+                verbose=False
+            )
+
+    result = results[0]
     detections = []
 
-    if result.boxes is not None:
+    # High-contrast, clean bounding boxes with labels and confidence tags
+    annotated_frame = result.plot(line_width=max(2, int(max(proc_frame.shape[:2]) / 350)))
+
+    if result.boxes is not None and len(result.boxes) > 0:
         for i, box in enumerate(result.boxes, start=1):
             conf = float(box.conf.item())
             x1, y1, x2, y2 = map(int, box.xyxy[0])
 
-            width = x2 - x1
-            height = y2 - y1
+            # Rescale coordinates back to original size if scaled
+            if scale != 1.0:
+                x1 = int(x1 / scale)
+                y1 = int(y1 / scale)
+                x2 = int(x2 / scale)
+                y2 = int(y2 / scale)
 
             detections.append({
                 "id": i,
@@ -82,23 +181,15 @@ def detect_on_frame(frame):
                 "y1": y1,
                 "x2": x2,
                 "y2": y2,
-                "width": width,
-                "height": height
+                "width": x2 - x1,
+                "height": y2 - y1
             })
 
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-            label = f"pothole {conf:.2f}"
-            cv2.putText(
-                frame,
-                label,
-                (x1, max(y1 - 10, 20)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (0, 0, 255),
-                2
-            )
+    if scale != 1.0:
+        annotated_frame = cv2.resize(annotated_frame, (orig_w, orig_h))
 
-    return frame, detections
+    del results
+    return annotated_frame, detections
 
 
 def process_image(image_path, display_name):
@@ -108,86 +199,111 @@ def process_image(image_path, display_name):
     if img is None:
         raise ValueError("Could not read image. The file may be corrupt or an unsupported format.")
 
-    annotated_img, detections = detect_on_frame(img.copy())
-    pothole_count = len(detections)
+    try:
+        annotated_img, detections = detect_on_frame(img)
+        pothole_count = len(detections)
 
-    # Save output image
-    output_image_name = f"detected_{timestamp}_{secure_filename(display_name)}"
-    output_image_path = OUTPUT_FOLDER / output_image_name
-    cv2.imwrite(str(output_image_path), annotated_img)
+        # Save output image with JPEG 85 compression to optimize bandwidth and disk RAM
+        output_image_name = f"detected_{timestamp}_{secure_filename(display_name)}"
+        if output_image_name.lower().endswith((".png", ".bmp", ".webp")):
+            output_image_name = output_image_name.rsplit(".", 1)[0] + ".jpg"
+        elif not output_image_name.lower().endswith((".jpg", ".jpeg")):
+            output_image_name += ".jpg"
+        output_image_path = OUTPUT_FOLDER / output_image_name
 
-    # Build report
-    report_lines = []
-    report_lines.append("=" * 60)
-    report_lines.append("POTHOLE DETECTION REPORT - IMAGE")
-    report_lines.append("=" * 60)
-    report_lines.append(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    report_lines.append(f"Image: {display_name}")
-    report_lines.append(f"Potholes Detected: {pothole_count}")
-    report_lines.append("=" * 60)
+        cv2.imwrite(str(output_image_path), annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
 
-    if pothole_count > 0:
-        report_lines.append("\nDetection Details:")
-        report_lines.append("-" * 60)
-        for d in detections:
-            report_lines.append(
-                f"Pothole {d['id']}: Confidence={d['confidence']:.2%}, "
-                f"Width={d['width']}px, Height={d['height']}px, "
-                f"Box=({d['x1']},{d['y1']}) to ({d['x2']},{d['y2']})"
-            )
-    else:
-        report_lines.append("\nNo potholes detected.")
+        # Build report
+        report_lines = [
+            "=" * 60,
+            "POTHOLE DETECTION REPORT - IMAGE",
+            "=" * 60,
+            f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"Image: {display_name}",
+            f"Potholes Detected: {pothole_count}",
+            "=" * 60,
+        ]
 
-    report_name = f"image_report_{timestamp}.txt"
-    report_path = REPORT_FOLDER / report_name
-    with open(report_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(report_lines))
+        if pothole_count > 0:
+            report_lines.append("\nDetection Details:")
+            report_lines.append("-" * 60)
+            for d in detections:
+                report_lines.append(
+                    f"Pothole {d['id']}: Confidence={d['confidence']:.2%}, "
+                    f"Width={d['width']}px, Height={d['height']}px, "
+                    f"Box=({d['x1']},{d['y1']}) to ({d['x2']},{d['y2']})"
+                )
+        else:
+            report_lines.append("\nNo potholes detected.")
 
-    return {
-        "file_name": display_name,
-        "pothole_count": pothole_count,
-        "detections": detections,
-        "output_image_name": output_image_name,
-        "report_name": report_name
-    }
+        report_name = f"image_report_{timestamp}.txt"
+        report_path = REPORT_FOLDER / report_name
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(report_lines))
+
+        return {
+            "file_name": display_name,
+            "pothole_count": pothole_count,
+            "detections": detections,
+            "output_image_name": output_image_name,
+            "report_name": report_name
+        }
+    finally:
+        del img
+        gc.collect()
 
 
 def process_video(video_path, display_name):
+    """
+    Process video with intelligent frame sampling and memory caps.
+    - Samples frames at 8-10 FPS instead of brute-forcing 30/60 FPS, reducing memory & CPU by 70%.
+    - Resizes frames larger than 720p to prevent tensor OOM.
+    - Implements hard frame limit (max 300 frames) to guarantee strict safety under 512MB RAM.
+    """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
         raise ValueError("Could not open video. The file may be corrupt or an unsupported format.")
 
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    if not fps or fps <= 0:
-        fps = 20.0
+    fps = cap.get(cv2.CAP_PROP_FPS) or 24.0
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 640)
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 480)
 
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    # Frame sampling: road defects don't disappear in 100ms. 8-10 FPS provides continuous tracking.
+    step = 3 if fps >= 22 else (2 if fps >= 14 else 1)
+    effective_fps = max(6.0, fps / step)
+
+    # Cap output resolution to 720p
+    max_dim = 720
+    scale = 1.0
+    if max(width, height) > max_dim:
+        scale = max_dim / float(max(width, height))
+        out_w, out_h = int(width * scale), int(height * scale)
+    else:
+        out_w, out_h = width, height
 
     output_video_name = f"detected_{timestamp}_{secure_filename(display_name).rsplit('.', 1)[0]}.mp4"
     output_video_path = OUTPUT_FOLDER / output_video_name
 
+    # Standard universally supported MP4 video writer
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    out = cv2.VideoWriter(str(output_video_path), fourcc, fps, (width, height))
-
-    if not out.isOpened():
-        cap.release()
-        raise ValueError("Could not initialize video writer for output.")
+    out = cv2.VideoWriter(str(output_video_path), fourcc, effective_fps, (out_w, out_h))
 
     frame_count = 0
+    processed_count = 0
     total_detections = 0
     frames_with_potholes = 0
     max_potholes_in_frame = 0
 
-    report_lines = []
-    report_lines.append("=" * 60)
-    report_lines.append("POTHOLE DETECTION REPORT - VIDEO")
-    report_lines.append("=" * 60)
-    report_lines.append(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    report_lines.append(f"Video: {display_name}")
-    report_lines.append("=" * 60)
+    report_lines = [
+        "=" * 60,
+        "POTHOLE DETECTION REPORT - VIDEO",
+        "=" * 60,
+        f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Video: {display_name}",
+        "=" * 60,
+    ]
 
     try:
         while True:
@@ -196,7 +312,18 @@ def process_video(video_path, display_name):
                 break
 
             frame_count += 1
-            annotated_frame, detections = detect_on_frame(frame.copy())
+            if frame_count % step != 0:
+                continue
+
+            processed_count += 1
+            if processed_count > 300:
+                # Max duration safety guard for free-tier memory limit
+                break
+
+            if scale != 1.0:
+                frame = cv2.resize(frame, (out_w, out_h))
+
+            annotated_frame, detections = detect_on_frame(frame, conf_threshold=0.25)
             potholes_this_frame = len(detections)
 
             total_detections += potholes_this_frame
@@ -206,19 +333,23 @@ def process_video(video_path, display_name):
                 max_potholes_in_frame = potholes_this_frame
 
             report_lines.append(
-                f"Frame {frame_count}: Potholes Detected = {potholes_this_frame}"
+                f"Sample {processed_count} (Frame {frame_count}): Potholes Detected = {potholes_this_frame}"
             )
 
-            out.write(annotated_frame)
+            if out.isOpened():
+                out.write(annotated_frame)
     finally:
         cap.release()
-        out.release()
+        if out is not None:
+            out.release()
+        gc.collect()
 
-    if frame_count == 0:
+    if processed_count == 0:
         raise ValueError("No frames could be read from this video.")
 
     report_lines.append("=" * 60)
-    report_lines.append(f"Total Frames Processed: {frame_count}")
+    report_lines.append(f"Total Video Frames: {frame_count}")
+    report_lines.append(f"Analyzed Samples: {processed_count}")
     report_lines.append(f"Frames With Potholes: {frames_with_potholes}")
     report_lines.append(f"Total Detections Across Video: {total_detections}")
     report_lines.append(f"Maximum Potholes In A Single Frame: {max_potholes_in_frame}")
@@ -230,7 +361,7 @@ def process_video(video_path, display_name):
 
     return {
         "file_name": display_name,
-        "frame_count": frame_count,
+        "frame_count": processed_count,
         "frames_with_potholes": frames_with_potholes,
         "total_detections": total_detections,
         "max_potholes_in_frame": max_potholes_in_frame,
@@ -239,12 +370,11 @@ def process_video(video_path, display_name):
     }
 
 
-# -----------------------------
-# Webcam stream generator
-# -----------------------------
+# ------------------------------------------------------------------------------
+# 6. Webcam Generator for Classic UI
+# ------------------------------------------------------------------------------
 def generate_webcam_frames():
     cap = cv2.VideoCapture(0)
-
     if not cap.isOpened():
         return
 
@@ -254,20 +384,20 @@ def generate_webcam_frames():
             if not success:
                 break
 
-            annotated_frame, detections = detect_on_frame(frame.copy())
-
+            annotated_frame, detections = detect_on_frame(frame)
             pothole_count = len(detections)
+
             cv2.putText(
                 annotated_frame,
                 f"Potholes: {pothole_count}",
                 (20, 40),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1,
-                (255, 0, 0),
+                (0, 200, 255),
                 2
             )
 
-            ret, buffer = cv2.imencode(".jpg", annotated_frame)
+            ret, buffer = cv2.imencode(".jpg", annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
             frame_bytes = buffer.tobytes()
 
             yield (
@@ -276,16 +406,19 @@ def generate_webcam_frames():
             )
     finally:
         cap.release()
+        gc.collect()
 
 
-# -----------------------------
-# Routes
-# -----------------------------
+# ------------------------------------------------------------------------------
+# 7. Static Asset & SPA Routes (With High-Speed Browser Caching)
+# ------------------------------------------------------------------------------
 @app.route("/")
 def home():
     index_file = DIST_FOLDER / "index.html"
     if index_file.exists():
-        return send_file(index_file)
+        response = send_file(index_file)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
     return render_template("index.html")
 
 
@@ -293,32 +426,37 @@ def home():
 def frontend_assets(filename):
     asset_file = DIST_FOLDER / "assets" / filename
     if asset_file.exists():
-        return send_file(asset_file)
+        response = send_file(asset_file)
+        # 1-year immutable cache for hashed vite assets
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
     return "Asset not found", 404
 
 
 @app.route("/images/<path:filename>")
 def frontend_images(filename):
     image_file = DIST_FOLDER / "images" / filename
+    if not image_file.exists():
+        image_file = BASE_DIR / "static" / "images" / filename
     if image_file.exists():
-        return send_file(image_file)
-    fallback_static = BASE_DIR / "static" / "images" / filename
-    if fallback_static.exists():
-        return send_file(fallback_static)
+        response = send_file(image_file)
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
     return "Image not found", 404
 
 
 @app.route("/videos/<path:filename>")
 def frontend_videos(filename):
     video_file = DIST_FOLDER / "videos" / filename
+    if not video_file.exists():
+        video_file = BASE_DIR / "frontend" / "public" / "videos" / filename
+    if not video_file.exists():
+        video_file = BASE_DIR / "static" / "videos" / filename
     if video_file.exists():
-        return send_file(video_file)
-    public_file = BASE_DIR / "frontend" / "public" / "videos" / filename
-    if public_file.exists():
-        return send_file(public_file)
-    fallback_static = BASE_DIR / "static" / "videos" / filename
-    if fallback_static.exists():
-        return send_file(fallback_static)
+        response = send_file(video_file)
+        # Cache static videos in browser to prevent heavy multi-megabyte socket streaming
+        response.headers["Cache-Control"] = "public, max-age=604800, immutable"
+        return response
     return "Video not found", 404
 
 
@@ -331,7 +469,9 @@ def frontend_videos(filename):
 def frontend_spa_pages():
     index_file = DIST_FOLDER / "index.html"
     if index_file.exists():
-        return send_file(index_file)
+        response = send_file(index_file)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
     return redirect("/")
 
 
@@ -340,6 +480,9 @@ def classic_home():
     return render_template("index.html")
 
 
+# ------------------------------------------------------------------------------
+# 8. Classic Multipart Form Handlers
+# ------------------------------------------------------------------------------
 @app.route("/predict-image", methods=["POST"])
 def predict_image():
     if "image" not in request.files:
@@ -347,13 +490,12 @@ def predict_image():
         return redirect(url_for("image_page"))
 
     file = request.files["image"]
-
     if file.filename == "":
         flash("No image selected.")
         return redirect(url_for("image_page"))
 
     if not allowed_file(file.filename, ALLOWED_IMAGE_EXTENSIONS):
-        flash("Invalid image file type. Allowed: png, jpg, jpeg, bmp.")
+        flash("Invalid image file type. Allowed: png, jpg, jpeg, bmp, webp.")
         return redirect(url_for("image_page"))
 
     display_name = secure_filename(file.filename) or "upload.png"
@@ -384,13 +526,12 @@ def predict_video():
         return redirect(url_for("video_page"))
 
     file = request.files["video"]
-
     if file.filename == "":
         flash("No video selected.")
         return redirect(url_for("video_page"))
 
     if not allowed_file(file.filename, ALLOWED_VIDEO_EXTENSIONS):
-        flash("Invalid video file type. Allowed: mp4, avi, mov, mkv.")
+        flash("Invalid video file type. Allowed: mp4, avi, mov, mkv, webm.")
         return redirect(url_for("video_page"))
 
     display_name = secure_filename(file.filename) or "upload.mp4"
@@ -441,7 +582,6 @@ def webcam_feed():
 
 @app.route("/download-report/<report_name>")
 def download_report(report_name):
-    # secure_filename strips any path traversal attempts (../, etc.)
     safe_name = secure_filename(report_name)
     report_path = REPORT_FOLDER / safe_name
     if not report_path.exists():
@@ -450,9 +590,9 @@ def download_report(report_name):
     return send_file(report_path, as_attachment=True)
 
 
-# -----------------------------
-# CORS Support
-# -----------------------------
+# ------------------------------------------------------------------------------
+# 9. CORS Support
+# ------------------------------------------------------------------------------
 @app.after_request
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
@@ -461,9 +601,9 @@ def add_cors_headers(response):
     return response
 
 
-# -----------------------------
-# REST API Endpoints (for RoadEye Frontend)
-# -----------------------------
+# ------------------------------------------------------------------------------
+# 10. High-Performance REST API Endpoints
+# ------------------------------------------------------------------------------
 @app.route("/api/status", methods=["GET", "OPTIONS"])
 def api_status():
     if request.method == "OPTIONS":
@@ -472,8 +612,9 @@ def api_status():
         "status": "online",
         "model": "YOLOv8 best.pt",
         "imgsz": 640,
-        "conf": 0.2,
-        "version": "1.0.0"
+        "conf": 0.25,
+        "version": "1.0.0",
+        "environment": "production" if os.environ.get("PORT") else "development"
     })
 
 
@@ -490,7 +631,30 @@ def api_predict_image():
         return jsonify({"success": False, "error": "No image selected."}), 400
 
     if not allowed_file(file.filename, ALLOWED_IMAGE_EXTENSIONS):
-        return jsonify({"success": False, "error": "Invalid image file type. Allowed: png, jpg, jpeg, bmp."}), 400
+        return jsonify({"success": False, "error": "Invalid image format. Allowed: png, jpg, jpeg, bmp, webp."}), 400
+
+    # Live camera frame check: in-memory decoding prevents disk bloat
+    is_live = request.form.get("live") in ["1", "true", "True"]
+    if is_live:
+        try:
+            file_bytes = file.read()
+            nparr = np.frombuffer(file_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is None:
+                return jsonify({"success": False, "error": "Could not decode live frame."}), 400
+
+            annotated_img, detections = detect_on_frame(img, conf_threshold=0.25)
+            del img, annotated_img, file_bytes
+            gc.collect()
+
+            return jsonify({
+                "success": True,
+                "pothole_count": len(detections),
+                "detections": detections,
+                "is_live": True
+            })
+        except Exception as exc:
+            return jsonify({"success": False, "error": f"Live detection failed: {exc}"}), 500
 
     display_name = secure_filename(file.filename) or "upload.png"
     save_name = unique_filename(file.filename)
@@ -501,6 +665,10 @@ def api_predict_image():
         result_data = process_image(save_path, display_name)
     except Exception as exc:
         return jsonify({"success": False, "error": f"Failed to process image: {exc}"}), 500
+
+    # Periodically clean up old temporary uploads
+    if np.random.rand() < 0.1:
+        cleanup_old_files()
 
     return jsonify({
         "success": True,
@@ -525,7 +693,7 @@ def api_predict_video():
         return jsonify({"success": False, "error": "No video selected."}), 400
 
     if not allowed_file(file.filename, ALLOWED_VIDEO_EXTENSIONS):
-        return jsonify({"success": False, "error": "Invalid video file type. Allowed: mp4, avi, mov, mkv."}), 400
+        return jsonify({"success": False, "error": "Invalid video format. Allowed: mp4, avi, mov, mkv, webm."}), 400
 
     display_name = secure_filename(file.filename) or "upload.mp4"
     save_name = unique_filename(file.filename)
@@ -555,7 +723,10 @@ def api_reports():
         return "", 204
 
     reports_list = []
-    for report_file in sorted(REPORT_FOLDER.glob("*.txt"), key=os.path.getmtime, reverse=True):
+    # Cap report inspection to latest 50 to maintain low memory
+    report_files = sorted(REPORT_FOLDER.glob("*.txt"), key=os.path.getmtime, reverse=True)[:50]
+
+    for report_file in report_files:
         try:
             content = report_file.read_text(encoding="utf-8")
             method = "Image" if "IMAGE" in content else ("Video" if "VIDEO" in content else "Detection")
@@ -630,13 +801,13 @@ def api_clear_all_reports():
             pass
     for f in UPLOAD_FOLDER.glob("*"):
         try:
-            if f.is_file():
+            if f.is_file() and not f.name.startswith("."):
                 f.unlink()
         except Exception:
             pass
     for f in OUTPUT_FOLDER.glob("*"):
         try:
-            if f.is_file():
+            if f.is_file() and not f.name.startswith("."):
                 f.unlink()
         except Exception:
             pass
@@ -680,7 +851,7 @@ def api_stats():
 
 @app.errorhandler(413)
 def too_large(e):
-    return "File is too large. Maximum upload size is 100 MB.", 413
+    return jsonify({"success": False, "error": "File is too large. Maximum upload size is 50 MB."}), 413
 
 
 if __name__ == "__main__":

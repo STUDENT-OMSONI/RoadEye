@@ -95,7 +95,7 @@ export const api = {
   /**
    * Predict image using real YOLO model
    */
-  async predictImage(file) {
+  async predictImage(file, isLive = false) {
     const validation = validateFile(file, ALLOWED_IMAGE_EXTENSIONS);
     if (!validation.valid) {
       throw new Error(validation.error);
@@ -103,6 +103,9 @@ export const api = {
 
     const formData = new FormData();
     formData.append('image', file);
+    if (isLive) {
+      formData.append('live', 'true');
+    }
 
     // Call REST endpoint
     const response = await client.post('/api/predict-image', formData, {

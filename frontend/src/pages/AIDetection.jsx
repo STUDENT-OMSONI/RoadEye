@@ -319,7 +319,7 @@ export default function AIDetection({ backendStatus }) {
         }
         const file = new File([blob], 'live_frame.jpg', { type: 'image/jpeg' });
         try {
-          const data = await api.predictImage(file);
+          const data = await api.predictImage(file, true);
           if (data && data.success) {
             setLivePotholeCount(data.pothole_count);
             const sev = calculateSeverity(data.pothole_count, data.detections);
