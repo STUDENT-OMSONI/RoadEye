@@ -93,9 +93,9 @@ export const api = {
   },
 
   /**
-   * Predict image using real YOLO model
+   * Predict image using real YOLO model with automatic cold-start retry
    */
-  async predictImage(file, isLive = false) {
+  async predictImage(file, isLive = false, retryAttempts = 2) {
     const validation = validateFile(file, ALLOWED_IMAGE_EXTENSIONS);
     if (!validation.valid) {
       throw new Error(validation.error);
@@ -107,18 +107,30 @@ export const api = {
       formData.append('live', 'true');
     }
 
-    // Call REST endpoint
-    const response = await client.post('/api/predict-image', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-
-    return response.data;
+    try {
+      const response = await client.post('/api/predict-image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data;
+    } catch (err) {
+      // If Render instance was asleep (502, 503, 504), automatically retry once after a short 2.5s delay
+      if (
+        !isLive &&
+        retryAttempts > 0 &&
+        (err.response?.status === 502 || err.response?.status === 503 || err.response?.status === 504 || !err.response)
+      ) {
+        console.warn(`Server cold start detected. Retrying predictImage (${retryAttempts} attempts left)...`);
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+        return api.predictImage(file, isLive, retryAttempts - 1);
+      }
+      throw err;
+    }
   },
 
   /**
-   * Predict video using real YOLO model
+   * Predict video using real YOLO model with automatic cold-start retry
    */
-  async predictVideo(file, onProgress) {
+  async predictVideo(file, onProgress, retryAttempts = 1) {
     const validation = validateFile(file, ALLOWED_VIDEO_EXTENSIONS);
     if (!validation.valid) {
       throw new Error(validation.error);
@@ -127,17 +139,28 @@ export const api = {
     const formData = new FormData();
     formData.append('video', file);
 
-    const response = await client.post('/api/predict-video', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      onUploadProgress: (progressEvent) => {
-        if (onProgress && progressEvent.total) {
-          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          onProgress(percent);
-        }
-      },
-    });
-
-    return response.data;
+    try {
+      const response = await client.post('/api/predict-video', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            onProgress(percent);
+          }
+        },
+      });
+      return response.data;
+    } catch (err) {
+      if (
+        retryAttempts > 0 &&
+        (err.response?.status === 502 || err.response?.status === 503 || err.response?.status === 504 || !err.response)
+      ) {
+        console.warn(`Server cold start detected. Retrying predictVideo (${retryAttempts} attempts left)...`);
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        return api.predictVideo(file, onProgress, retryAttempts - 1);
+      }
+      throw err;
+    }
   },
 
   /**
