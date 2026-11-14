@@ -124,14 +124,14 @@ export default function Profile() {
 
       {/* 2. Citizen Profile Card with 3D Tilt */}
       <TiltCard3D maxTilt={6}>
-        <div className={`rounded-2xl p-6 sm:p-8 border transition-colors ${cardBg} flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6`}>
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+        <div className={`rounded-2xl p-5 sm:p-8 border transition-colors ${cardBg} flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6`}>
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5 w-full sm:w-auto">
             {/* Avatar Circle with initial 'O' matching navbar */}
             <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-gradient-to-tr from-[#ea580c] to-amber-500 text-white flex items-center justify-center font-black text-2xl sm:text-3xl shadow-md border-2 border-orange-400/40 shrink-0">
               {profile.name ? profile.name.charAt(0).toUpperCase() : 'O'}
             </div>
 
-            <div className="text-center sm:text-left space-y-1.5">
+            <div className="text-center sm:text-left space-y-1.5 flex-1">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <h2 className={`text-xl sm:text-2xl font-black tracking-tight ${cardHeading}`}>
                   {profile.name}
@@ -145,7 +145,7 @@ export default function Profile() {
               <div className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs ${cardDesc} pt-1`}>
                 <div className="flex items-center justify-center sm:justify-start gap-1.5">
                   <Mail size={13} className="text-[#ea580c] shrink-0" />
-                  <span>{profile.email}</span>
+                  <span className="truncate max-w-[200px] sm:max-w-none">{profile.email}</span>
                 </div>
                 <div className="flex items-center justify-center sm:justify-start gap-1.5">
                   <MapPin size={13} className="text-emerald-500 shrink-0" />
@@ -159,15 +159,15 @@ export default function Profile() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             {/* Edit Profile Button with 3D click */}
-            <Click3D scaleDown={0.92} depth={-8}>
+            <Click3D scaleDown={0.92} depth={-8} className="w-full sm:w-auto">
               <button
                 onClick={() => {
                   setFormData(profile);
                   setEditModalOpen(true);
                 }}
-                className={`inline-flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl border transition-all shadow-sm ${
+                className={`w-full sm:w-auto justify-center inline-flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl border transition-all shadow-sm ${
                   isDark
                     ? 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800'
                     : 'bg-[#0f1d2a] hover:bg-slate-800 border-slate-700/70 text-slate-200'
@@ -180,10 +180,10 @@ export default function Profile() {
             </Click3D>
 
             {/* Sign Out Button with 3D click */}
-            <Click3D scaleDown={0.92} depth={-8}>
+            <Click3D scaleDown={0.92} depth={-8} className="w-full sm:w-auto">
               <button
                 onClick={logout}
-                className={`inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl border transition-all shadow-sm ${
+                className={`w-full sm:w-auto justify-center inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl border transition-all shadow-sm ${
                   isDark
                     ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
                     : 'border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20'
@@ -199,8 +199,8 @@ export default function Profile() {
       </TiltCard3D>
 
       {/* 3. Community Inspection Metrics (4 High-Contrast Stat Cards) */}
-      <div className={`rounded-2xl p-6 sm:p-8 space-y-5 border transition-colors ${cardBg}`}>
-        <div className={`flex items-center justify-between pb-3 border-b ${isDark ? 'border-slate-200' : 'border-slate-800'}`}>
+      <div className={`rounded-2xl p-5 sm:p-8 space-y-5 border transition-colors ${cardBg}`}>
+        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-3 border-b ${isDark ? 'border-slate-200' : 'border-slate-800'}`}>
           <div className="flex items-center gap-2">
             <History size={18} className="text-[#ea580c]" />
             <h3 className={`text-base font-bold tracking-tight ${cardHeading}`}>
@@ -212,56 +212,56 @@ export default function Profile() {
           </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           {/* Stat 1: Total Scans */}
-          <div className={`p-4 rounded-xl border transition-colors ${innerCard} space-y-1`}>
-            <span className={`text-xs uppercase tracking-wider block ${statLabel}`}>
+          <div className={`p-3.5 sm:p-4 rounded-xl border transition-colors ${innerCard} space-y-1`}>
+            <span className={`text-[10px] sm:text-xs uppercase tracking-wider block ${statLabel}`}>
               Total Scans
             </span>
-            <span className={`text-2xl font-black block ${statVal}`}>
+            <span className={`text-xl sm:text-2xl font-black block ${statVal}`}>
               {stats.totalDetections}
             </span>
-            <span className={`text-[11px] block ${cardDesc}`}>
+            <span className={`text-[10px] sm:text-[11px] block ${cardDesc}`}>
               Inspection passes
             </span>
           </div>
 
           {/* Stat 2: Potholes Logged */}
-          <div className={`p-4 rounded-xl border transition-colors ${innerCard} space-y-1`}>
-            <span className={`text-xs uppercase tracking-wider block ${statLabel}`}>
-              Potholes Logged
+          <div className={`p-3.5 sm:p-4 rounded-xl border transition-colors ${innerCard} space-y-1`}>
+            <span className={`text-[10px] sm:text-xs uppercase tracking-wider block ${statLabel}`}>
+              Potholes
             </span>
-            <span className="text-2xl font-black text-[#ea580c] block">
+            <span className="text-xl sm:text-2xl font-black text-[#ea580c] block">
               {stats.potholesFound}
             </span>
-            <span className={`text-[11px] block ${cardDesc}`}>
-              Surface defects found
+            <span className={`text-[10px] sm:text-[11px] block ${cardDesc}`}>
+              Defects tagged
             </span>
           </div>
 
-          {/* Stat 3: High Hazard */}
-          <div className={`p-4 rounded-xl border transition-colors ${innerCard} space-y-1`}>
-            <span className={`text-xs uppercase tracking-wider block ${statLabel}`}>
-              High Hazard
+          {/* Stat 3: High Severity */}
+          <div className={`p-3.5 sm:p-4 rounded-xl border transition-colors ${innerCard} space-y-1`}>
+            <span className={`text-[10px] sm:text-xs uppercase tracking-wider block ${statLabel}`}>
+              High Severity
             </span>
-            <span className="text-2xl font-black text-red-500 block">
+            <span className="text-xl sm:text-2xl font-black text-red-500 block">
               {stats.highSeverity}
             </span>
-            <span className={`text-[11px] block ${cardDesc}`}>
-              Urgent repair spots
+            <span className={`text-[10px] sm:text-[11px] block ${cardDesc}`}>
+              Priority repairs
             </span>
           </div>
 
-          {/* Stat 4: Reports Filed */}
-          <div className={`p-4 rounded-xl border transition-colors ${innerCard} space-y-1`}>
-            <span className={`text-xs uppercase tracking-wider block ${statLabel}`}>
-              Reports Filed
+          {/* Stat 4: Reports */}
+          <div className={`p-3.5 sm:p-4 rounded-xl border transition-colors ${innerCard} space-y-1`}>
+            <span className={`text-[10px] sm:text-xs uppercase tracking-wider block ${statLabel}`}>
+              Reports
             </span>
-            <span className="text-2xl font-black text-emerald-500 block">
+            <span className="text-xl sm:text-2xl font-black text-emerald-500 block">
               {stats.reportsGenerated}
             </span>
-            <span className={`text-[11px] block ${cardDesc}`}>
-              Certified audit logs
+            <span className={`text-[10px] sm:text-[11px] block ${cardDesc}`}>
+              PDF archives
             </span>
           </div>
         </div>

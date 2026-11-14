@@ -372,12 +372,12 @@ export default function AIDetection({ backendStatus }) {
             </p>
           </div>
 
-          {/* 3 Clean Tabs with 3D Clicks */}
-          <div className={`flex items-center rounded-xl p-1.5 border shadow-md transition-colors duration-200 ${tabBarBg}`}>
-            <Click3D scaleDown={0.92} depth={-10} tiltX={-4}>
+          {/* 3 Clean Tabs with 3D Clicks (Responsive Grid on Mobile) */}
+          <div className={`w-full sm:w-auto grid grid-cols-3 sm:flex items-center rounded-xl p-1.5 border shadow-md transition-colors duration-200 ${tabBarBg}`}>
+            <Click3D fullWidth scaleDown={0.92} depth={-10} tiltX={-4} className="w-full">
               <button
                 onClick={() => switchTab('image')}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+                className={`w-full justify-center flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-4 py-2 text-xs font-bold transition-all ${
                   activeTab === 'image'
                     ? 'bg-[#ea580c] text-white shadow-sm'
                     : tabInactiveText
@@ -388,10 +388,10 @@ export default function AIDetection({ backendStatus }) {
               </button>
             </Click3D>
 
-            <Click3D scaleDown={0.92} depth={-10} tiltX={-4}>
+            <Click3D fullWidth scaleDown={0.92} depth={-10} tiltX={-4} className="w-full">
               <button
                 onClick={() => switchTab('video')}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+                className={`w-full justify-center flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-4 py-2 text-xs font-bold transition-all ${
                   activeTab === 'video'
                     ? 'bg-[#ea580c] text-white shadow-sm'
                     : tabInactiveText
@@ -402,17 +402,17 @@ export default function AIDetection({ backendStatus }) {
               </button>
             </Click3D>
 
-            <Click3D scaleDown={0.92} depth={-10} tiltX={-4}>
+            <Click3D fullWidth scaleDown={0.92} depth={-10} tiltX={-4} className="w-full">
               <button
                 onClick={() => switchTab('camera')}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+                className={`w-full justify-center flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-4 py-2 text-xs font-bold transition-all whitespace-nowrap ${
                   activeTab === 'camera'
                     ? 'bg-[#ea580c] text-white shadow-sm'
                     : tabInactiveText
                 }`}
               >
                 <Radio size={15} />
-                <span>Live Camera</span>
+                <span>Camera</span>
               </button>
             </Click3D>
           </div>
@@ -455,7 +455,7 @@ export default function AIDetection({ backendStatus }) {
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleImageDrop}
                   onClick={() => imageInputRef.current?.click()}
-                  className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 text-center transition-colors cursor-pointer ${dropzoneBg}`}
+                  className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 sm:p-12 text-center transition-colors cursor-pointer ${dropzoneBg}`}
                 >
                   <input
                     ref={imageInputRef}
@@ -464,44 +464,45 @@ export default function AIDetection({ backendStatus }) {
                     className="hidden"
                     onChange={(e) => e.target.files?.[0] && handleImageSelect(e.target.files[0])}
                   />
-                  <div className={`h-14 w-14 rounded-full border flex items-center justify-center mb-3 shadow-inner ${dropzoneIconBox}`}>
-                    <UploadCloud size={28} />
+                  <div className={`h-12 w-12 sm:h-14 sm:w-14 rounded-full border flex items-center justify-center mb-3 shadow-inner ${dropzoneIconBox}`}>
+                    <UploadCloud size={24} className="sm:hidden" />
+                    <UploadCloud size={28} className="hidden sm:block" />
                   </div>
-                  <p className={`text-sm font-bold ${dropzoneTitle}`}>
+                  <p className={`text-xs sm:text-sm font-bold ${dropzoneTitle}`}>
                     Click to upload or drag and drop image
                   </p>
-                  <p className={`text-xs ${dropzoneSub} mt-1`}>
+                  <p className={`text-[11px] sm:text-xs ${dropzoneSub} mt-1`}>
                     PNG, JPG, JPEG, BMP (up to 100MB)
                   </p>
                 </div>
               ) : (
                 /* Preview & Detect Button */
                 <div className="space-y-4">
-                  <div className={`relative rounded-xl overflow-hidden bg-black border ${borderColor} max-h-[460px] flex items-center justify-center p-2`}>
+                  <div className={`relative rounded-xl overflow-hidden bg-black border ${borderColor} max-h-[340px] sm:max-h-[460px] flex items-center justify-center p-2`}>
                     <img
                       src={imagePreview}
                       alt="Preview"
-                      className="max-h-[440px] w-auto object-contain rounded-lg"
+                      className="max-h-[320px] sm:max-h-[440px] w-auto object-contain rounded-lg"
                     />
                     <button
                       onClick={handleResetImage}
-                      className="absolute top-4 right-4 bg-black/70 hover:bg-black text-white p-2 rounded-lg transition-colors"
+                      className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-black/70 hover:bg-black text-white p-2 rounded-lg transition-colors"
                       title="Remove image"
                     >
                       <X size={16} />
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-xs text-slate-400">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                    <span className="text-xs text-slate-400 truncate max-w-xs">
                       {imageFile.name} ({(imageFile.size / 1024).toFixed(1)} KB)
                     </span>
 
-                    <LuminaMotion>
+                    <LuminaMotion className="w-full sm:w-auto">
                       <button
                         onClick={handleStartImageDetection}
                         disabled={imageLoading}
-                        className="inline-flex items-center gap-2 bg-gradient-to-r from-[#ea580c] to-amber-600 hover:from-orange-600 hover:to-orange-500 disabled:bg-slate-700 text-white text-xs sm:text-sm font-bold px-6 py-2.5 rounded-full shadow-md shadow-black/20 transition-all"
+                        className="w-full sm:w-auto justify-center inline-flex items-center gap-2 bg-gradient-to-r from-[#ea580c] to-amber-600 hover:from-orange-600 hover:to-orange-500 disabled:bg-slate-700 text-white text-xs sm:text-sm font-bold px-6 py-2.5 rounded-full shadow-md shadow-black/20 transition-all"
                       >
                         {imageLoading ? (
                           <>
@@ -596,7 +597,7 @@ export default function AIDetection({ backendStatus }) {
                   {/* Original Image */}
                   <div className="space-y-2">
                     <span className={`text-xs font-semibold block ${isDark ? 'text-slate-700' : 'text-slate-300'}`}>Original Input</span>
-                    <div className={`rounded-xl overflow-hidden ${previewFrameBg} h-[340px] flex items-center justify-center border`}>
+                    <div className={`rounded-xl overflow-hidden ${previewFrameBg} h-[240px] sm:h-[340px] flex items-center justify-center border`}>
                       <img
                         src={imagePreview}
                         alt="Original"
@@ -610,7 +611,7 @@ export default function AIDetection({ backendStatus }) {
                     <span className={`text-xs font-semibold block ${isDark ? 'text-slate-700' : 'text-slate-300'}`}>
                       YOLOv8 Result ({imageResult.pothole_count} bounding boxes)
                     </span>
-                    <div className={`rounded-xl overflow-hidden ${previewFrameBg} h-[340px] flex items-center justify-center border`}>
+                    <div className={`rounded-xl overflow-hidden ${previewFrameBg} h-[240px] sm:h-[340px] flex items-center justify-center border`}>
                       <img
                         src={imageResult.output_image_url}
                         alt="Detected Result"
@@ -626,8 +627,8 @@ export default function AIDetection({ backendStatus }) {
                     <h4 className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
                       Detected Pothole Bounding Boxes
                     </h4>
-                    <div className={`overflow-x-auto rounded-lg border ${borderColor}`}>
-                      <table className={`w-full text-xs text-left ${isDark ? 'text-slate-700' : 'text-slate-300'}`}>
+                    <div className={`overflow-x-auto rounded-lg border ${borderColor}`} style={{ WebkitOverflowScrolling: 'touch' }}>
+                      <table className={`min-w-[480px] w-full text-xs text-left ${isDark ? 'text-slate-700' : 'text-slate-300'}`}>
                         <thead className={`uppercase tracking-wider text-[11px] ${tableHeadBg}`}>
                           <tr>
                             <th className="px-3 py-2">Defect #</th>
@@ -696,7 +697,7 @@ export default function AIDetection({ backendStatus }) {
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleVideoDrop}
                   onClick={() => videoInputRef.current?.click()}
-                  className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 text-center transition-colors cursor-pointer ${dropzoneBg}`}
+                  className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 sm:p-12 text-center transition-colors cursor-pointer ${dropzoneBg}`}
                 >
                   <input
                     ref={videoInputRef}
@@ -705,23 +706,24 @@ export default function AIDetection({ backendStatus }) {
                     className="hidden"
                     onChange={(e) => e.target.files?.[0] && handleVideoSelect(e.target.files[0])}
                   />
-                  <div className={`h-14 w-14 rounded-full border flex items-center justify-center mb-3 shadow-inner ${dropzoneIconBox}`}>
-                    <Video size={28} />
+                  <div className={`h-12 w-12 sm:h-14 sm:w-14 rounded-full border flex items-center justify-center mb-3 shadow-inner ${dropzoneIconBox}`}>
+                    <Video size={24} className="sm:hidden" />
+                    <Video size={28} className="hidden sm:block" />
                   </div>
-                  <p className={`text-sm font-bold ${dropzoneTitle}`}>
+                  <p className={`text-xs sm:text-sm font-bold ${dropzoneTitle}`}>
                     Click to upload or drag and drop MP4 video
                   </p>
-                  <p className={`text-xs ${dropzoneSub} mt-1`}>
+                  <p className={`text-[11px] sm:text-xs ${dropzoneSub} mt-1`}>
                     MP4 format (up to 100MB)
                   </p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className={`rounded-xl overflow-hidden bg-black max-h-[380px] flex items-center justify-center border ${borderColor}`}>
+                  <div className={`rounded-xl overflow-hidden bg-black max-h-[300px] sm:max-h-[380px] flex items-center justify-center border ${borderColor}`}>
                     <video
                       src={videoPreview}
                       controls
-                      className="max-h-[360px] w-auto"
+                      className="max-h-[280px] sm:max-h-[360px] w-auto"
                     />
                   </div>
 
@@ -743,16 +745,16 @@ export default function AIDetection({ backendStatus }) {
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between pt-2">
-                    <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                    <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'} truncate max-w-xs`}>
                       {videoFile.name} ({(videoFile.size / (1024 * 1024)).toFixed(1)} MB)
                     </span>
 
-                    <LuminaMotion>
+                    <LuminaMotion className="w-full sm:w-auto">
                       <button
                         onClick={handleStartVideoDetection}
                         disabled={videoLoading}
-                        className="inline-flex items-center gap-2 bg-gradient-to-r from-[#ea580c] to-amber-600 hover:from-orange-600 hover:to-orange-500 disabled:bg-slate-700 text-white text-xs sm:text-sm font-bold px-6 py-2.5 rounded-full shadow-md shadow-black/20 transition-all"
+                        className="w-full sm:w-auto justify-center inline-flex items-center gap-2 bg-gradient-to-r from-[#ea580c] to-amber-600 hover:from-orange-600 hover:to-orange-500 disabled:bg-slate-700 text-white text-xs sm:text-sm font-bold px-6 py-2.5 rounded-full shadow-md shadow-black/20 transition-all"
                       >
                         {videoLoading ? (
                           <>
@@ -859,7 +861,7 @@ export default function AIDetection({ backendStatus }) {
           )}
 
           <div className={`${cardBg} rounded-2xl p-6 shadow-xl space-y-4 border transition-colors`}>
-            <div className={`flex items-center justify-between pb-3 border-b ${borderColor}`}>
+            <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b ${borderColor}`}>
               <div>
                 <h2 className={`text-base font-bold flex items-center gap-2 ${cardTitle}`}>
                   <Radio size={18} className="text-[#ea580c]" />
@@ -871,19 +873,19 @@ export default function AIDetection({ backendStatus }) {
               </div>
 
               {/* Start/Stop Camera Button */}
-              <div>
-                <Click3D scaleDown={0.93} depth={-12} tiltX={-4}>
+              <div className="w-full sm:w-auto">
+                <Click3D scaleDown={0.93} depth={-12} tiltX={-4} className="w-full sm:w-auto">
                   {!cameraActive ? (
                     <button
                       onClick={startCamera}
-                      className="inline-flex items-center gap-2 bg-[#ea580c] hover:bg-orange-600 text-white text-xs font-bold px-5 py-2.5 rounded-full transition-all shadow-md"
+                      className="w-full sm:w-auto justify-center inline-flex items-center gap-2 bg-[#ea580c] hover:bg-orange-600 text-white text-xs font-bold px-5 py-2.5 rounded-full transition-all shadow-md"
                     >
                       <Play size={14} /> Start Camera
                     </button>
                   ) : (
                     <button
                       onClick={stopCamera}
-                      className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-full transition-all shadow-md"
+                      className="w-full sm:w-auto justify-center inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-5 py-2.5 rounded-full transition-all shadow-md"
                     >
                       <X size={14} /> Stop Camera
                     </button>
@@ -893,7 +895,7 @@ export default function AIDetection({ backendStatus }) {
             </div>
 
             {/* Video Feed Screen */}
-            <div className={`relative rounded-xl overflow-hidden bg-black min-h-[340px] sm:min-h-[420px] flex items-center justify-center border ${borderColor}`}>
+            <div className={`relative rounded-xl overflow-hidden bg-black min-h-[260px] sm:min-h-[420px] flex items-center justify-center border ${borderColor}`}>
               <video
                 ref={videoElementRef}
                 autoPlay
@@ -903,7 +905,7 @@ export default function AIDetection({ backendStatus }) {
               />
 
               {!cameraActive && (
-                <div className="text-center p-8 space-y-3">
+                <div className="text-center p-6 sm:p-8 space-y-3">
                   <div className={`inline-flex h-12 w-12 items-center justify-center rounded-full border ${isDark ? 'bg-slate-100 border-slate-300 text-slate-500' : 'bg-[#101827] border-[#1f2e42] text-slate-500'}`}>
                     <Camera size={24} />
                   </div>
@@ -925,8 +927,8 @@ export default function AIDetection({ backendStatus }) {
 
             {/* Live Count and Live Controls */}
             {cameraActive && (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                <div className="flex items-center gap-6">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-2">
+                <div className="flex items-center justify-around sm:justify-start gap-6">
                   <div>
                     <span className={`text-xs ${statLabel} block`}>Live Count</span>
                     <span className={`text-xl font-bold ${statVal} block mt-0.5`}>
@@ -942,10 +944,10 @@ export default function AIDetection({ backendStatus }) {
                   </div>
                 </div>
 
-                <Click3D scaleDown={0.93} depth={-12} tiltX={-4}>
+                <Click3D scaleDown={0.93} depth={-12} tiltX={-4} className="w-full sm:w-auto">
                   <button
                     onClick={toggleLiveDetection}
-                    className={`inline-flex items-center gap-2 text-xs font-bold px-5 py-2.5 rounded-full transition-all shadow-md ${
+                    className={`w-full sm:w-auto justify-center inline-flex items-center gap-2 text-xs font-bold px-5 py-2.5 rounded-full transition-all shadow-md ${
                       cameraDetectionActive
                         ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold'
                         : 'bg-[#ea580c] hover:bg-orange-600 text-white'

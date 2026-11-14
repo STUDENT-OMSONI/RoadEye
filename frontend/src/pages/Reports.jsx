@@ -199,98 +199,163 @@ export default function Reports() {
             </p>
           </div>
         ) : (
-          /* Table: ID | Method | Date | Potholes | Severity | Actions */
-          <div className="overflow-x-auto">
-            <table className={`w-full text-left text-xs ${isDark ? 'text-slate-700' : 'text-slate-300'}`}>
-              <thead className={`uppercase tracking-wider text-[11px] border-b ${theadBg}`}>
-                <tr>
-                  <th className="px-5 py-3.5">ID</th>
-                  <th className="px-5 py-3.5">Method</th>
-                  <th className="px-5 py-3.5">Date</th>
-                  <th className="px-5 py-3.5">Potholes</th>
-                  <th className="px-5 py-3.5">Severity</th>
-                  <th className="px-5 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${tableDivide}`}>
-                {reports.map((report) => (
-                  <tr key={report.id} className={`${tableRowHover} transition-colors`}>
-                    {/* ID */}
-                    <td className={`px-5 py-4 font-mono max-w-[200px] truncate ${tableIdText}`} title={report.id}>
+          <div>
+            {/* 1. Mobile Card View (Visible on screens < 768px) */}
+            <div className="md:hidden divide-y divide-slate-700/50">
+              {reports.map((report) => (
+                <div key={report.id} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className={`font-mono text-xs font-bold truncate max-w-[180px] ${tableIdText}`}>
                       {report.id}
-                    </td>
+                    </span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${methodPill}`}>
+                      {report.method || 'Image'}
+                    </span>
+                  </div>
 
-                    {/* Method */}
-                    <td className="px-5 py-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${methodPill}`}>
-                        {report.method || 'Image'}
-                      </span>
-                    </td>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className={`block text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Date</span>
+                      <span className={isDark ? 'text-slate-700 font-medium' : 'text-slate-300 font-medium'}>{report.date}</span>
+                    </div>
+                    <div>
+                      <span className={`block text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Potholes</span>
+                      <span className={`font-bold ${isDark ? 'text-slate-900' : 'text-white'}`}>{report.potholes} defects</span>
+                    </div>
+                  </div>
 
-                    {/* Date */}
-                    <td className={`px-5 py-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                      {report.date}
-                    </td>
+                  <div className="flex items-center justify-between pt-1">
+                    <SeverityBadge severity={report.severity} size="sm" />
 
-                    {/* Potholes */}
-                    <td className={`px-5 py-4 font-bold ${isDark ? 'text-slate-900' : 'text-white'}`}>
-                      {report.potholes}
-                    </td>
+                    <div className="flex items-center gap-2">
+                      <Click3D scaleDown={0.88} depth={-6}>
+                        <button
+                          onClick={() => setViewReport(report)}
+                          className={`p-2 rounded-xl transition-colors border ${actionBtn}`}
+                          title="View"
+                        >
+                          <Eye size={15} />
+                        </button>
+                      </Click3D>
 
-                    {/* Severity */}
-                    <td className="px-5 py-4">
-                      <SeverityBadge severity={report.severity} size="sm" />
-                    </td>
+                      <Click3D scaleDown={0.88} depth={-6}>
+                        <button
+                          onClick={() => handleDownloadPdf(report)}
+                          className={`p-2 rounded-xl transition-colors border ${actionBtn}`}
+                          title="Download PDF"
+                        >
+                          <FileDown size={15} />
+                        </button>
+                      </Click3D>
 
-                    {/* Actions: View | Download PDF | Delete */}
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {/* View */}
-                        <Click3D scaleDown={0.88} depth={-6}>
-                          <button
-                            onClick={() => setViewReport(report)}
-                            className={`p-1.5 rounded-lg transition-colors ${actionBtn}`}
-                            title="View"
-                          >
-                            <Eye size={15} />
-                          </button>
-                        </Click3D>
+                      <Click3D scaleDown={0.88} depth={-6}>
+                        <button
+                          onClick={() => setDeleteTarget(report)}
+                          className={`p-2 rounded-xl transition-colors border ${isDark ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-red-400 hover:bg-[#101827]'}`}
+                          title="Delete"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </Click3D>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-                        {/* Download PDF */}
-                        <Click3D scaleDown={0.88} depth={-6}>
-                          <button
-                            onClick={() => handleDownloadPdf(report)}
-                            className={`p-1.5 rounded-lg transition-colors ${actionBtn}`}
-                            title="Download PDF"
-                          >
-                            <FileDown size={15} />
-                          </button>
-                        </Click3D>
-
-                        {/* Delete (with confirm) */}
-                        <Click3D scaleDown={0.88} depth={-6}>
-                          <button
-                            onClick={() => setDeleteTarget(report)}
-                            className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-red-400 hover:bg-[#101827]'}`}
-                            title="Delete"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </Click3D>
-                      </div>
-                    </td>
+            {/* 2. Desktop Table View (Visible on screens >= 768px) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className={`w-full text-left text-xs ${isDark ? 'text-slate-700' : 'text-slate-300'}`}>
+                <thead className={`uppercase tracking-wider text-[11px] border-b ${theadBg}`}>
+                  <tr>
+                    <th className="px-5 py-3.5">ID</th>
+                    <th className="px-5 py-3.5">Method</th>
+                    <th className="px-5 py-3.5">Date</th>
+                    <th className="px-5 py-3.5">Potholes</th>
+                    <th className="px-5 py-3.5">Severity</th>
+                    <th className="px-5 py-3.5 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className={`divide-y ${tableDivide}`}>
+                  {reports.map((report) => (
+                    <tr key={report.id} className={`${tableRowHover} transition-colors`}>
+                      {/* ID */}
+                      <td className={`px-5 py-4 font-mono max-w-[200px] truncate ${tableIdText}`} title={report.id}>
+                        {report.id}
+                      </td>
+
+                      {/* Method */}
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${methodPill}`}>
+                          {report.method || 'Image'}
+                        </span>
+                      </td>
+
+                      {/* Date */}
+                      <td className={`px-5 py-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        {report.date}
+                      </td>
+
+                      {/* Potholes */}
+                      <td className={`px-5 py-4 font-bold ${isDark ? 'text-slate-900' : 'text-white'}`}>
+                        {report.potholes}
+                      </td>
+
+                      {/* Severity */}
+                      <td className="px-5 py-4">
+                        <SeverityBadge severity={report.severity} size="sm" />
+                      </td>
+
+                      {/* Actions: View | Download PDF | Delete */}
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* View */}
+                          <Click3D scaleDown={0.88} depth={-6}>
+                            <button
+                              onClick={() => setViewReport(report)}
+                              className={`p-1.5 rounded-lg transition-colors ${actionBtn}`}
+                              title="View"
+                            >
+                              <Eye size={15} />
+                            </button>
+                          </Click3D>
+
+                          {/* Download PDF */}
+                          <Click3D scaleDown={0.88} depth={-6}>
+                            <button
+                              onClick={() => handleDownloadPdf(report)}
+                              className={`p-1.5 rounded-lg transition-colors ${actionBtn}`}
+                              title="Download PDF"
+                            >
+                              <FileDown size={15} />
+                            </button>
+                          </Click3D>
+
+                          {/* Delete (with confirm) */}
+                          <Click3D scaleDown={0.88} depth={-6}>
+                            <button
+                              onClick={() => setDeleteTarget(report)}
+                              className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-red-400 hover:bg-[#101827]'}`}
+                              title="Delete"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </Click3D>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
 
       {/* VIEW MODAL */}
       {viewReport && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className={`border rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl ${modalBg}`}>
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className={`border rounded-2xl max-w-xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto ${modalBg}`}>
             <div className={`flex items-center justify-between pb-3 border-b ${modalBorder}`}>
               <div>
                 <h3 className={`text-base font-bold ${isDark ? 'text-slate-900' : 'text-white'}`}>Report View</h3>

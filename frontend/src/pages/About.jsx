@@ -261,21 +261,21 @@ export default function About() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <LuminaMotion>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto shrink-0">
+          <LuminaMotion className="w-full sm:w-auto">
             <Link
               to="/detection"
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ea580c] to-amber-600 hover:from-orange-600 hover:to-orange-500 text-white text-xs font-bold px-5 py-2.5 transition-all shadow-md shadow-black/20"
+              className="w-full sm:w-auto justify-center inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ea580c] to-amber-600 hover:from-orange-600 hover:to-orange-500 text-white text-xs font-bold px-5 py-2.5 transition-all shadow-md shadow-black/20"
             >
               <Scan size={15} />
               <span>Start Inspection</span>
             </Link>
           </LuminaMotion>
 
-          <Click3D scaleDown={0.93} depth={-10} tiltX={-3}>
+          <Click3D scaleDown={0.93} depth={-10} tiltX={-3} className="w-full sm:w-auto">
             <Link
               to="/reports"
-              className={`inline-flex items-center gap-1.5 rounded-xl border text-xs font-semibold px-4 py-2.5 transition-colors ${
+              className={`w-full sm:w-auto justify-center inline-flex items-center gap-1.5 rounded-xl border text-xs font-semibold px-4 py-2.5 transition-colors ${
                 isDark
                   ? 'border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200'
                   : 'border-slate-700 bg-[#0f1d2a] text-slate-200 hover:bg-slate-800'

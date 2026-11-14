@@ -43,11 +43,11 @@ export default function Footer() {
   };
 
   return (
-    <footer className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16 mb-8 transition-colors duration-200">
+    <footer className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mt-12 sm:mt-16 mb-6 sm:mb-8 transition-colors duration-200">
       {/* Elevated Container */}
-      <div className={`rounded-[28px] border p-8 sm:p-12 transition-colors duration-200 ${footerBg}`}>
+      <div className={`rounded-[28px] border p-6 sm:p-12 transition-colors duration-200 ${footerBg}`}>
         {/* Balanced 3-Section Grid (6 - 3 - 3) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-12">
           {/* Column 1: Brand & Socials (6 cols) */}
           <div className="lg:col-span-6 space-y-4">
             <Link to="/" className="inline-block group">

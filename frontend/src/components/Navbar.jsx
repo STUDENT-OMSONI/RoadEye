@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { Menu, X, Moon, Sun, LogOut } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import RoadEyeLogo from './RoadEyeLogo';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -21,9 +22,9 @@ export default function Navbar({ backendStatus, onRefreshStatus }) {
   ];
 
   return (
-    <header className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
+    <header className="w-full max-w-7xl mx-auto px-3 sm:px-6 pt-3 sm:pt-6 pb-2">
       <div
-        className={`relative z-40 rounded-2xl px-5 sm:px-7 py-3 flex items-center justify-between transition-colors duration-200 ${
+        className={`relative z-40 rounded-2xl px-3.5 sm:px-7 py-2.5 sm:py-3 flex items-center justify-between transition-colors duration-200 ${
           isDark
             ? 'bg-white/95 border border-slate-200/90 shadow-2xl backdrop-blur-md text-slate-900'
             : 'bg-[#162838] border border-slate-700/60 shadow-xl text-white'
@@ -33,8 +34,8 @@ export default function Navbar({ backendStatus, onRefreshStatus }) {
         <AetherLoop amplitude={1.8} duration={4.5}>
           <Link to="/" className="flex items-center group">
             <RoadEyeLogo
-              size={32}
-              textClass="text-xl sm:text-2xl font-black tracking-tight"
+              size={28}
+              textClass="text-lg sm:text-2xl font-black tracking-tight"
               darkBackground={!isDark}
             />
           </Link>
@@ -60,8 +61,8 @@ export default function Navbar({ backendStatus, onRefreshStatus }) {
           ))}
         </nav>
 
-        {/* Right: Light/Dark Mode Toggle, Avatar 'O', Sign Out */}
-        <div className="flex items-center gap-2.5 sm:gap-3.5">
+        {/* Right: Light/Dark Mode Toggle, Avatar 'O', Sign Out, Mobile Menu */}
+        <div className="flex items-center gap-2 sm:gap-3.5">
           {/* Theme Toggle Button with 3D click */}
           <Click3D scaleDown={0.88} depth={-12}>
             <button
@@ -94,12 +95,12 @@ export default function Navbar({ backendStatus, onRefreshStatus }) {
             </Link>
           </Click3D>
 
-          {/* Quick Sign Out Button with 3D click */}
+          {/* Quick Sign Out Button with 3D click (hidden on tiny screens, inside drawer) */}
           <Click3D scaleDown={0.88} depth={-12}>
             <button
               type="button"
               onClick={logout}
-              className={`h-8 w-8 rounded-full flex items-center justify-center transition-all shadow-sm ${
+              className={`hidden sm:flex h-8 w-8 rounded-full items-center justify-center transition-all shadow-sm ${
                 isDark
                   ? 'border border-slate-200 bg-slate-100 text-slate-500 hover:text-rose-600 hover:border-rose-300'
                   : 'border border-slate-700/80 bg-[#0f1d2a]/80 text-slate-400 hover:text-rose-400 hover:border-rose-600'
@@ -115,60 +116,70 @@ export default function Navbar({ backendStatus, onRefreshStatus }) {
           <Click3D scaleDown={0.88} depth={-10}>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className={`md:hidden p-1.5 rounded-lg transition-colors ml-1 ${
-                isDark ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              className={`md:hidden p-2 rounded-xl border transition-colors ${
+                isDark
+                  ? 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  : 'border-slate-700 bg-slate-800/80 text-slate-200 hover:bg-slate-700'
               }`}
               aria-label="Toggle menu"
             >
-              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
           </Click3D>
         </div>
       </div>
 
-      {/* Mobile Drawer Navigation */}
-      {mobileMenuOpen && (
-        <div
-          className={`md:hidden mt-2 border rounded-2xl p-4 space-y-2 shadow-2xl transition-colors ${
-            isDark ? 'bg-white border-slate-200 text-slate-900' : 'bg-[#162838] border-slate-700/70 text-white'
-          }`}
-        >
-          {navLinks.map((item) => (
-            <Click3D key={item.path} fullWidth scaleDown={0.95} depth={-10}>
-              <NavLink
-                to={item.path}
-                onClick={() => setMobileMenuOpen(false)}
-                className={({ isActive }) =>
-                  `block px-4 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors ${
-                    isActive
-                      ? 'bg-[#ea580c] text-white'
-                      : isDark
-                      ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                      : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                  }`
-                }
-              >
-                {item.name}
-              </NavLink>
-            </Click3D>
-          ))}
+      {/* Mobile Drawer Navigation with smooth spring physics */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            className={`md:hidden mt-2 border rounded-2xl p-3.5 space-y-1.5 shadow-2xl backdrop-blur-xl transition-colors ${
+              isDark ? 'bg-white/95 border-slate-200 text-slate-900' : 'bg-[#162838]/95 border-slate-700/70 text-white'
+            }`}
+          >
+            {navLinks.map((item) => (
+              <Click3D key={item.path} fullWidth scaleDown={0.96} depth={-8}>
+                <NavLink
+                  to={item.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={({ isActive }) =>
+                    `block px-4 py-3 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors ${
+                      isActive
+                        ? 'bg-[#ea580c] text-white shadow-md shadow-orange-500/20'
+                        : isDark
+                        ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                        : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                    }`
+                  }
+                >
+                  {item.name}
+                </NavLink>
+              </Click3D>
+            ))}
 
-          {/* Sign Out Button in Mobile Drawer */}
-          <Click3D fullWidth scaleDown={0.95} depth={-10}>
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                logout();
-              }}
-              className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors text-rose-500 hover:bg-rose-500/10"
-            >
-              <LogOut size={14} />
-              <span>Sign Out</span>
-            </button>
-          </Click3D>
-        </div>
-      )}
+            {/* Sign Out Button in Mobile Drawer */}
+            <div className={`pt-2 border-t ${isDark ? 'border-slate-100' : 'border-slate-700/60'}`}>
+              <Click3D fullWidth scaleDown={0.96} depth={-8}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    logout();
+                  }}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors text-rose-500 hover:bg-rose-500/10"
+                >
+                  <span>Sign Out</span>
+                  <LogOut size={15} />
+                </button>
+              </Click3D>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

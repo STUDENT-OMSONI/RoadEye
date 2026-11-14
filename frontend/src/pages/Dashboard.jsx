@@ -131,42 +131,42 @@ export default function Dashboard() {
           </div>
 
           {/* Content on top of dark overlay */}
-          <div className="relative z-10 max-w-2xl p-8 sm:p-12 lg:p-14 space-y-6">
+          <div className="relative z-10 max-w-2xl p-5 sm:p-10 lg:p-14 space-y-4 sm:space-y-6">
             {/* Badge: ROADEYE PLATFORM with AetherLoop */}
             <AetherLoop amplitude={2.5} duration={5}>
-              <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/85 backdrop-blur-md border border-[#ea580c]/40 px-3.5 py-1 text-xs font-semibold text-[#ea580c] uppercase tracking-wider shadow-sm">
+              <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/85 backdrop-blur-md border border-[#ea580c]/40 px-3.5 py-1 text-[11px] sm:text-xs font-semibold text-[#ea580c] uppercase tracking-wider shadow-sm">
                 <Eye size={13} className="text-[#ea580c]" />
                 <span>ROADEYE 3D AI PLATFORM</span>
               </div>
             </AetherLoop>
 
             {/* Title */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.08] font-sans">
+            <h1 className="text-2xl sm:text-4xl lg:text-6xl font-black tracking-tight leading-[1.08] font-sans">
               <span className="text-white block">Find potholes before</span>
               <span className="text-[#ea580c] block">they find your wheels.</span>
             </h1>
 
             {/* Subtitle text */}
-            <p className="text-sm sm:text-base text-slate-200 font-normal max-w-xl leading-relaxed">
+            <p className="text-xs sm:text-base text-slate-200 font-normal max-w-xl leading-relaxed">
               Upload a photo or video, or go live with a camera. RoadEye inspects pavement surfaces in 3D, rates hazard severity with deep learning, and generates certified municipal reports.
             </p>
 
             {/* Action Buttons with LuminaMotion & 3D Clicks */}
-            <div className="pt-2 flex flex-wrap items-center gap-3.5">
-              <LuminaMotion>
+            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <LuminaMotion className="w-full sm:w-auto">
                 <button
                   onClick={() => navigate('/detection')}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ea580c] to-amber-600 hover:from-orange-600 hover:to-orange-500 text-white font-black text-xs sm:text-sm px-7 py-3.5 transition-all shadow-md shadow-black/20"
+                  className="w-full sm:w-auto justify-center inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ea580c] to-amber-600 hover:from-orange-600 hover:to-orange-500 text-white font-black text-xs sm:text-sm px-7 py-3.5 transition-all shadow-md shadow-black/20"
                 >
                   <Scan size={16} />
                   <span>Start Detection</span>
                 </button>
               </LuminaMotion>
 
-              <Click3D scaleDown={0.93} depth={-12} tiltX={-4}>
+              <Click3D scaleDown={0.93} depth={-12} tiltX={-4} className="w-full sm:w-auto">
                 <button
                   onClick={scrollToHowItWorks}
-                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900/80 hover:bg-slate-900 text-slate-200 font-medium text-xs sm:text-sm px-6 py-3.5 border border-slate-700/80 backdrop-blur-sm transition-colors"
+                  className="w-full sm:w-auto justify-center inline-flex items-center gap-2 rounded-xl bg-slate-900/80 hover:bg-slate-900 text-slate-200 font-medium text-xs sm:text-sm px-6 py-3.5 border border-slate-700/80 backdrop-blur-sm transition-colors"
                 >
                   <span>See How It Works</span>
                 </button>
@@ -175,10 +175,10 @@ export default function Dashboard() {
           </div>
 
           {/* Bottom Capabilities Strip with 3D Clicks (Scrollbar Completely Hidden) */}
-          <div className={`relative z-10 w-full px-6 sm:px-10 py-3.5 overflow-hidden transition-colors duration-200 ${capabilitiesStrip}`}>
+          <div className={`relative z-10 w-full px-4 sm:px-10 py-3 overflow-hidden transition-colors duration-200 ${capabilitiesStrip}`}>
             <div
-              className="flex items-center justify-between overflow-x-auto no-scrollbar gap-5 text-xs sm:text-sm"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              className="flex items-center justify-between overflow-x-auto no-scrollbar gap-4 sm:gap-6 text-xs sm:text-sm scroll-smooth"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
             >
               {/* 1. Image Detection */}
               <Click3D scaleDown={0.92} depth={-8}>
@@ -482,7 +482,7 @@ export default function Dashboard() {
                       src="/images/pothole-detection-preview.jpg"
                       alt="AI Pothole Detection Preview"
                       loading="lazy"
-                      className="w-full h-[360px] object-cover transition-transform duration-500 hover:scale-105"
+                      className="w-full h-56 sm:h-[360px] object-cover transition-transform duration-500 hover:scale-105"
                       onError={(e) => {
                         e.target.onerror = null;
                         e.target.src = '/images/hero-road.jpg';
@@ -663,56 +663,56 @@ export default function Dashboard() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {/* Stat 1: Total Scans */}
               <MotionPulse3D pulseScale={1.018} pulseSpeed={4.2} depth={-10}>
-                <div className={`rounded-2xl ${cardBg} p-6 border shadow-sm h-full`}>
-                  <span className={`text-[11px] font-bold uppercase tracking-wider ${statLabel} block`}>
+                <div className={`rounded-2xl ${cardBg} p-3.5 sm:p-6 border shadow-sm h-full`}>
+                  <span className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider ${statLabel} block`}>
                     Total Scans
                   </span>
-                  <span className={`text-3xl font-black ${statValTotal} mt-1 block`}>
+                  <span className={`text-2xl sm:text-3xl font-black ${statValTotal} mt-1 block`}>
                     {statsLoading ? '0' : stats.totalDetections}
                   </span>
-                  <span className={`text-[11px] ${statSub} mt-1 block`}>Completed surveys</span>
+                  <span className={`text-[10px] sm:text-[11px] ${statSub} mt-1 block`}>Completed surveys</span>
                 </div>
               </MotionPulse3D>
 
               {/* Stat 2: Potholes Found */}
               <MotionPulse3D pulseScale={1.02} pulseSpeed={3.8} depth={-10}>
-                <div className={`rounded-2xl ${cardBg} p-6 border shadow-sm h-full`}>
-                  <span className={`text-[11px] font-bold uppercase tracking-wider ${statLabel} block`}>
+                <div className={`rounded-2xl ${cardBg} p-3.5 sm:p-6 border shadow-sm h-full`}>
+                  <span className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider ${statLabel} block`}>
                     Potholes Found
                   </span>
-                  <span className="text-3xl font-black text-[#ea580c] mt-1 block">
+                  <span className="text-2xl sm:text-3xl font-black text-[#ea580c] mt-1 block">
                     {statsLoading ? '0' : stats.potholesFound}
                   </span>
-                  <span className={`text-[11px] ${statSub} mt-1 block`}>YOLOv8 detected defects</span>
+                  <span className={`text-[10px] sm:text-[11px] ${statSub} mt-1 block`}>YOLOv8 detected defects</span>
                 </div>
               </MotionPulse3D>
 
               {/* Stat 3: High Severity */}
               <MotionPulse3D pulseScale={1.02} pulseSpeed={3.4} depth={-10}>
-                <div className={`rounded-2xl ${cardBg} p-6 border shadow-sm h-full`}>
-                  <span className={`text-[11px] font-bold uppercase tracking-wider ${statLabel} block`}>
+                <div className={`rounded-2xl ${cardBg} p-3.5 sm:p-6 border shadow-sm h-full`}>
+                  <span className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider ${statLabel} block`}>
                     High Severity
                   </span>
-                  <span className="text-3xl font-black text-red-500 mt-1 block">
+                  <span className="text-2xl sm:text-3xl font-black text-red-500 mt-1 block">
                     {statsLoading ? '0' : stats.highSeverity}
                   </span>
-                  <span className={`text-[11px] ${statSub} mt-1 block`}>Priority road repairs</span>
+                  <span className={`text-[10px] sm:text-[11px] ${statSub} mt-1 block`}>Priority road repairs</span>
                 </div>
               </MotionPulse3D>
 
               {/* Stat 4: Reports */}
               <MotionPulse3D pulseScale={1.018} pulseSpeed={4.6} depth={-10}>
-                <div className={`rounded-2xl ${cardBg} p-6 border shadow-sm h-full`}>
-                  <span className={`text-[11px] font-bold uppercase tracking-wider ${statLabel} block`}>
+                <div className={`rounded-2xl ${cardBg} p-3.5 sm:p-6 border shadow-sm h-full`}>
+                  <span className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider ${statLabel} block`}>
                     Reports Generated
                   </span>
-                  <span className="text-3xl font-black text-emerald-500 mt-1 block">
+                  <span className="text-2xl sm:text-3xl font-black text-emerald-500 mt-1 block">
                     {statsLoading ? '0' : stats.reportsGenerated}
                   </span>
-                  <span className={`text-[11px] ${statSub} mt-1 block`}>Archived audit files</span>
+                  <span className={`text-[10px] sm:text-[11px] ${statSub} mt-1 block`}>Archived audit files</span>
                 </div>
               </MotionPulse3D>
             </div>
@@ -726,12 +726,12 @@ export default function Dashboard() {
       <ScrollReveal yOffset={40}>
         <Item3D tiltOnHover={false}>
           <TiltCard3D maxTilt={5}>
-            <section className={`rounded-[28px] ${ctaSection} p-8 sm:p-12 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden transition-colors duration-200`}>
+            <section className={`rounded-[28px] ${ctaSection} p-6 sm:p-12 flex flex-col sm:flex-row items-center justify-between gap-5 sm:gap-6 relative overflow-hidden transition-colors duration-200`}>
               {/* PixelDrift Studio Particle Atmosphere */}
               <PixelDrift count={10} color="#ea580c" accentColor="#38bdf8" />
 
               <div className="relative z-10 space-y-2 text-center sm:text-left">
-                <h2 className={`text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight ${ctaTitle}`}>
+                <h2 className={`text-xl sm:text-3xl lg:text-4xl font-black tracking-tight ${ctaTitle}`}>
                   Ready to inspect your first road?
                 </h2>
                 <p className={`text-xs sm:text-sm ${ctaDesc} max-w-lg leading-relaxed`}>
@@ -739,11 +739,11 @@ export default function Dashboard() {
                 </p>
               </div>
 
-              <div className="relative z-10 shrink-0">
-                <LuminaMotion>
+              <div className="relative z-10 shrink-0 w-full sm:w-auto">
+                <LuminaMotion fullWidth={false} className="w-full sm:w-auto">
                   <button
                     onClick={() => navigate('/detection')}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ea580c] to-amber-600 hover:from-orange-600 hover:to-orange-500 text-white font-black text-sm px-8 py-4 transition-all shadow-md shadow-black/20"
+                    className="w-full sm:w-auto justify-center inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ea580c] to-amber-600 hover:from-orange-600 hover:to-orange-500 text-white font-black text-xs sm:text-sm px-8 py-3.5 sm:py-4 transition-all shadow-md shadow-black/20"
                   >
                     <Scan size={18} />
                     <span>Start Detection</span>

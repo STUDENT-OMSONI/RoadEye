@@ -29,7 +29,7 @@ export function ScrollProgressBar() {
 export function SmoothKineticScroll() {
   useEffect(() => {
     // Only apply on desktop non-touch devices with fine pointers
-    if (window.matchMedia('(pointer: coarse)').matches) return;
+    if (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches) return;
 
     let targetY = window.scrollY;
     let currentY = window.scrollY;
