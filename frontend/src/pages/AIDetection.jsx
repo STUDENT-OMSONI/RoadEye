@@ -136,7 +136,15 @@ export default function AIDetection({ backendStatus }) {
       setImageResult(data);
     } catch (err) {
       console.error('Image detection failed:', err);
-      setImageError(err.response?.data?.error || err.message || 'Detection failed. Ensure backend is running.');
+      let errMsg = err.response?.data?.error;
+      if (!errMsg) {
+        if (err.response?.status === 502 || err.response?.status === 504) {
+          errMsg = 'Server is warming up (Render free tier cold start). Please wait 10-15 seconds and tap Detect again.';
+        } else {
+          errMsg = err.message || 'Detection failed. Ensure backend is running.';
+        }
+      }
+      setImageError(errMsg);
     } finally {
       setImageLoading(false);
     }
@@ -221,7 +229,15 @@ export default function AIDetection({ backendStatus }) {
       setVideoResult(data);
     } catch (err) {
       console.error('Video detection error:', err);
-      setVideoError(err.response?.data?.error || err.message || 'Video processing failed.');
+      let errMsg = err.response?.data?.error;
+      if (!errMsg) {
+        if (err.response?.status === 502 || err.response?.status === 504) {
+          errMsg = 'Server is warming up from sleep. Please wait a moment and tap Detect Video again.';
+        } else {
+          errMsg = err.message || 'Video processing failed.';
+        }
+      }
+      setVideoError(errMsg);
     } finally {
       setVideoLoading(false);
     }
@@ -256,30 +272,54 @@ export default function AIDetection({ backendStatus }) {
   // ==========================================
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraDetectionActive, setCameraDetectionActive] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState('environment'); // default to rear camera for road inspection
   const [cameraError, setCameraError] = useState(null);
   const [livePotholeCount, setLivePotholeCount] = useState(0);
   const [liveSeverity, setLiveSeverity] = useState('Low');
   const [isProcessingFrame, setIsProcessingFrame] = useState(false);
 
   const videoElementRef = useRef(null);
+  const overlayCanvasRef = useRef(null);
   const streamRef = useRef(null);
   const detectionIntervalRef = useRef(null);
 
-  const startCamera = async () => {
+  const startCamera = async (facing = cameraFacing) => {
     setCameraError(null);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'environment' }
-      });
+      // Robust cross-platform constraints (supports desktop webcam & mobile front/back cameras)
+      const constraints = {
+        video: {
+          facingMode: { ideal: facing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
       if (videoElementRef.current) {
         videoElementRef.current.srcObject = stream;
-        videoElementRef.current.play();
+        videoElementRef.current.onloadedmetadata = () => {
+          videoElementRef.current.play().catch((e) => console.warn('Autoplay prevented:', e));
+        };
       }
       setCameraActive(true);
     } catch (err) {
-      setCameraError('Webcam access error: ' + err.message);
+      console.error('Camera access error:', err);
+      setCameraError('Camera access error: ' + (err.message || 'Please enable camera permissions in your browser.'));
       setCameraActive(false);
+    }
+  };
+
+  const flipCamera = async () => {
+    const nextFacing = cameraFacing === 'environment' ? 'user' : 'environment';
+    setCameraFacing(nextFacing);
+    if (cameraActive) {
+      await startCamera(nextFacing);
     }
   };
 
@@ -295,6 +335,11 @@ export default function AIDetection({ backendStatus }) {
       clearInterval(detectionIntervalRef.current);
       detectionIntervalRef.current = null;
     }
+    const overlay = overlayCanvasRef.current;
+    if (overlay) {
+      const octx = overlay.getContext('2d');
+      octx.clearRect(0, 0, overlay.width, overlay.height);
+    }
     setCameraActive(false);
     setCameraDetectionActive(false);
   };
@@ -302,15 +347,23 @@ export default function AIDetection({ backendStatus }) {
   // Live detection sampling: captures a frame from video element and runs model inference
   const captureAndDetect = async () => {
     if (!videoElementRef.current || isProcessingFrame) return;
+    const video = videoElementRef.current;
+    if (video.readyState < 2) return;
+
     setIsProcessingFrame(true);
 
     try {
-      const video = videoElementRef.current;
+      const vw = video.videoWidth || 640;
+      const vh = video.videoHeight || 480;
+      // Cap snapshot size to 640 max width for fast mobile upload & inference
+      const targetW = Math.min(640, vw);
+      const targetH = Math.round((targetW / vw) * vh);
+
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
+      canvas.width = targetW;
+      canvas.height = targetH;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, targetW, targetH);
 
       canvas.toBlob(async (blob) => {
         if (!blob) {
@@ -324,13 +377,51 @@ export default function AIDetection({ backendStatus }) {
             setLivePotholeCount(data.pothole_count);
             const sev = calculateSeverity(data.pothole_count, data.detections);
             setLiveSeverity(sev.level);
+
+            // Draw bounding boxes on live overlay canvas
+            const overlay = overlayCanvasRef.current;
+            if (overlay) {
+              overlay.width = vw;
+              overlay.height = vh;
+              const octx = overlay.getContext('2d');
+              octx.clearRect(0, 0, vw, vh);
+
+              if (data.detections && data.detections.length > 0) {
+                const scaleX = vw / targetW;
+                const scaleY = vh / targetH;
+
+                data.detections.forEach((det) => {
+                  const bx = det.x1 * scaleX;
+                  const by = det.y1 * scaleY;
+                  const bw = (det.x2 - det.x1) * scaleX;
+                  const bh = (det.y2 - det.y1) * scaleY;
+
+                  // High-contrast neon orange bounding box
+                  octx.strokeStyle = '#ea580c';
+                  octx.lineWidth = 3;
+                  octx.strokeRect(bx, by, bw, bh);
+
+                  // Label tag
+                  const confPct = Math.round(det.confidence * 100);
+                  const label = `POTHOLE ${confPct}%`;
+                  octx.font = 'bold 13px sans-serif';
+                  const textWidth = octx.measureText(label).width;
+
+                  octx.fillStyle = '#ea580c';
+                  octx.fillRect(bx, Math.max(0, by - 22), textWidth + 12, 22);
+
+                  octx.fillStyle = '#ffffff';
+                  octx.fillText(label, bx + 6, Math.max(16, by - 6));
+                });
+              }
+            }
           }
-        } catch {
-          // Keep running
+        } catch (err) {
+          console.warn('Live inference frame skipped:', err);
         } finally {
           setIsProcessingFrame(false);
         }
-      }, 'image/jpeg', 0.85);
+      }, 'image/jpeg', 0.8);
     } catch {
       setIsProcessingFrame(false);
     }
@@ -341,6 +432,11 @@ export default function AIDetection({ backendStatus }) {
       if (detectionIntervalRef.current) {
         clearInterval(detectionIntervalRef.current);
         detectionIntervalRef.current = null;
+      }
+      const overlay = overlayCanvasRef.current;
+      if (overlay) {
+        const octx = overlay.getContext('2d');
+        octx.clearRect(0, 0, overlay.width, overlay.height);
       }
       setCameraDetectionActive(false);
     } else {
@@ -872,12 +968,24 @@ export default function AIDetection({ backendStatus }) {
                 </p>
               </div>
 
-              {/* Start/Stop Camera Button */}
-              <div className="w-full sm:w-auto">
-                <Click3D scaleDown={0.93} depth={-12} tiltX={-4} className="w-full sm:w-auto">
+              {/* Camera Action Buttons */}
+              <div className="w-full sm:w-auto flex flex-wrap items-center gap-2">
+                {cameraActive && (
+                  <Click3D scaleDown={0.93} depth={-10} tiltX={-3} className="flex-1 sm:flex-none">
+                    <button
+                      onClick={flipCamera}
+                      className="w-full sm:w-auto justify-center inline-flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-3.5 py-2.5 rounded-full transition-all shadow-md"
+                      title="Switch Front / Rear Camera"
+                    >
+                      <RotateCcw size={13} /> {cameraFacing === 'environment' ? 'Rear Cam' : 'Front Cam'}
+                    </button>
+                  </Click3D>
+                )}
+
+                <Click3D scaleDown={0.93} depth={-12} tiltX={-4} className="flex-1 sm:flex-none">
                   {!cameraActive ? (
                     <button
-                      onClick={startCamera}
+                      onClick={() => startCamera(cameraFacing)}
                       className="w-full sm:w-auto justify-center inline-flex items-center gap-2 bg-[#ea580c] hover:bg-orange-600 text-white text-xs font-bold px-5 py-2.5 rounded-full transition-all shadow-md"
                     >
                       <Play size={14} /> Start Camera
@@ -902,6 +1010,10 @@ export default function AIDetection({ backendStatus }) {
                 playsInline
                 muted
                 className={`w-full max-h-[460px] object-contain ${!cameraActive ? 'hidden' : 'block'}`}
+              />
+              <canvas
+                ref={overlayCanvasRef}
+                className={`absolute inset-0 w-full h-full object-contain pointer-events-none ${!cameraActive ? 'hidden' : 'block'}`}
               />
 
               {!cameraActive && (

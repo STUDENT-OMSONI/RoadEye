@@ -130,18 +130,18 @@ def detect_on_frame(frame, conf_threshold=0.25):
     """
     Run pothole detection on a single frame.
     Optimizations:
-    - Downscales oversized photos (>1280px) to prevent massive memory spikes.
+    - Downscales frame to max 960px to prevent memory spikes on Render 512MB RAM tier.
     - Runs under torch.inference_mode() with thread locking to prevent concurrent memory overlap.
     - Uses result.plot() for high-contrast, scalable, clear bounding box rendering.
-    - Frees intermediate PyTorch tensors explicitly.
+    - Explicitly frees PyTorch tensors and triggers garbage collection.
     """
-    orig_h, orig_w = frame.shape[:2]
-    max_dim = 1280
+    h, w = frame.shape[:2]
+    max_dim = 960
     scale = 1.0
 
-    if max(orig_h, orig_w) > max_dim:
-        scale = max_dim / float(max(orig_h, orig_w))
-        proc_frame = cv2.resize(frame, (int(orig_w * scale), int(orig_h * scale)))
+    if max(h, w) > max_dim:
+        scale = max_dim / float(max(h, w))
+        proc_frame = cv2.resize(frame, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
     else:
         proc_frame = frame
 
@@ -159,15 +159,15 @@ def detect_on_frame(frame, conf_threshold=0.25):
     result = results[0]
     detections = []
 
-    # High-contrast, clean bounding boxes with labels and confidence tags
-    annotated_frame = result.plot(line_width=max(2, int(max(proc_frame.shape[:2]) / 350)))
+    # Clean bounding box visualization directly on proc_frame
+    annotated_frame = result.plot(line_width=2)
 
     if result.boxes is not None and len(result.boxes) > 0:
         for i, box in enumerate(result.boxes, start=1):
             conf = float(box.conf.item())
             x1, y1, x2, y2 = map(int, box.xyxy[0])
 
-            # Rescale coordinates back to original size if scaled
+            # Rescale coordinates to input frame if proc_frame was scaled
             if scale != 1.0:
                 x1 = int(x1 / scale)
                 y1 = int(y1 / scale)
@@ -186,7 +186,7 @@ def detect_on_frame(frame, conf_threshold=0.25):
             })
 
     if scale != 1.0:
-        annotated_frame = cv2.resize(annotated_frame, (orig_w, orig_h))
+        annotated_frame = cv2.resize(annotated_frame, (w, h), interpolation=cv2.INTER_LINEAR)
 
     del results
     return annotated_frame, detections
@@ -199,11 +199,19 @@ def process_image(image_path, display_name):
     if img is None:
         raise ValueError("Could not read image. The file may be corrupt or an unsupported format.")
 
+    # High-resolution mobile phone photo optimization:
+    # Immediately cap maximum dimension to 1024px to prevent 36MB uncompressed memory footprint
+    h, w = img.shape[:2]
+    max_dim = 1024
+    if max(h, w) > max_dim:
+        scale = max_dim / float(max(h, w))
+        img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+
     try:
         annotated_img, detections = detect_on_frame(img)
         pothole_count = len(detections)
 
-        # Save output image with JPEG 85 compression to optimize bandwidth and disk RAM
+        # Save output image with JPEG 80 compression to keep file size small (<150KB) and fast to render
         output_image_name = f"detected_{timestamp}_{secure_filename(display_name)}"
         if output_image_name.lower().endswith((".png", ".bmp", ".webp")):
             output_image_name = output_image_name.rsplit(".", 1)[0] + ".jpg"
@@ -211,7 +219,7 @@ def process_image(image_path, display_name):
             output_image_name += ".jpg"
         output_image_path = OUTPUT_FOLDER / output_image_name
 
-        cv2.imwrite(str(output_image_path), annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        cv2.imwrite(str(output_image_path), annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 80])
 
         # Build report
         report_lines = [
@@ -256,9 +264,10 @@ def process_image(image_path, display_name):
 def process_video(video_path, display_name):
     """
     Process video with intelligent frame sampling and memory caps.
-    - Samples frames at 8-10 FPS instead of brute-forcing 30/60 FPS, reducing memory & CPU by 70%.
-    - Resizes frames larger than 720p to prevent tensor OOM.
-    - Implements hard frame limit (max 300 frames) to guarantee strict safety under 512MB RAM.
+    - Samples frames at ~8 FPS to reduce memory and CPU by 70%.
+    - Caps video dimensions to 640px to ensure strict stability on 512MB RAM tier.
+    - Ensures dimensions are even numbers (multiples of 2) for standard MP4 video encoders.
+    - Implements hard frame limit (max 250 frames).
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
@@ -270,12 +279,12 @@ def process_video(video_path, display_name):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 640)
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 480)
 
-    # Frame sampling: road defects don't disappear in 100ms. 8-10 FPS provides continuous tracking.
-    step = 3 if fps >= 22 else (2 if fps >= 14 else 1)
+    # Frame sampling: sample at ~8 FPS to prevent excessive CPU/RAM usage
+    step = 4 if fps >= 25 else (3 if fps >= 18 else (2 if fps >= 12 else 1))
     effective_fps = max(6.0, fps / step)
 
-    # Cap output resolution to 720p
-    max_dim = 720
+    # Cap output resolution to 640px max dimension for mobile and web safety
+    max_dim = 640
     scale = 1.0
     if max(width, height) > max_dim:
         scale = max_dim / float(max(width, height))
@@ -283,10 +292,13 @@ def process_video(video_path, display_name):
     else:
         out_w, out_h = width, height
 
+    # Even dimensions for video codecs
+    out_w = out_w - (out_w % 2)
+    out_h = out_h - (out_h % 2)
+
     output_video_name = f"detected_{timestamp}_{secure_filename(display_name).rsplit('.', 1)[0]}.mp4"
     output_video_path = OUTPUT_FOLDER / output_video_name
 
-    # Standard universally supported MP4 video writer
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     out = cv2.VideoWriter(str(output_video_path), fourcc, effective_fps, (out_w, out_h))
 
@@ -316,12 +328,12 @@ def process_video(video_path, display_name):
                 continue
 
             processed_count += 1
-            if processed_count > 300:
+            if processed_count > 250:
                 # Max duration safety guard for free-tier memory limit
                 break
 
             if scale != 1.0:
-                frame = cv2.resize(frame, (out_w, out_h))
+                frame = cv2.resize(frame, (out_w, out_h), interpolation=cv2.INTER_AREA)
 
             annotated_frame, detections = detect_on_frame(frame, conf_threshold=0.25)
             potholes_this_frame = len(detections)
@@ -642,6 +654,12 @@ def api_predict_image():
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             if img is None:
                 return jsonify({"success": False, "error": "Could not decode live frame."}), 400
+
+            # Bound live camera frame size to 640px max for instant mobile inference
+            h, w = img.shape[:2]
+            if max(h, w) > 640:
+                sc = 640.0 / max(h, w)
+                img = cv2.resize(img, (int(w * sc), int(h * sc)), interpolation=cv2.INTER_AREA)
 
             annotated_img, detections = detect_on_frame(img, conf_threshold=0.25)
             del img, annotated_img, file_bytes
