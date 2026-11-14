@@ -100,11 +100,14 @@ export default function AIDetection({ backendStatus }) {
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState(null);
   const [imageResult, setImageResult] = useState(null);
+  const [detectionDuration, setDetectionDuration] = useState(null);
+  const [elapsedTimer, setElapsedTimer] = useState(0);
   const imageInputRef = useRef(null);
 
   const handleImageSelect = (file) => {
     setImageError(null);
     setImageResult(null);
+    setDetectionDuration(null);
 
     const validation = validateFile(file, ALLOWED_IMAGE_EXTENSIONS);
     if (!validation.valid) {
@@ -127,12 +130,21 @@ export default function AIDetection({ backendStatus }) {
     if (!imageFile) return;
     setImageLoading(true);
     setImageError(null);
+    setDetectionDuration(null);
+    setElapsedTimer(0);
+
+    const tStart = performance.now();
+    const timerInterval = setInterval(() => {
+      setElapsedTimer(((performance.now() - tStart) / 1000).toFixed(1));
+    }, 100);
 
     try {
       const data = await api.predictImage(imageFile);
       if (!data.success) {
         throw new Error(data.error || 'Failed to detect potholes.');
       }
+      const totalTime = ((performance.now() - tStart) / 1000).toFixed(1);
+      setDetectionDuration(totalTime);
       setImageResult(data);
     } catch (err) {
       console.error('Image detection failed:', err);
@@ -148,6 +160,7 @@ export default function AIDetection({ backendStatus }) {
       }
       setImageError(errMsg);
     } finally {
+      clearInterval(timerInterval);
       setImageLoading(false);
     }
   };
@@ -157,6 +170,8 @@ export default function AIDetection({ backendStatus }) {
     setImagePreview(null);
     setImageResult(null);
     setImageError(null);
+    setDetectionDuration(null);
+    setElapsedTimer(0);
     if (imageInputRef.current) imageInputRef.current.value = '';
   };
 
@@ -605,7 +620,7 @@ export default function AIDetection({ backendStatus }) {
                         {imageLoading ? (
                           <>
                             <RefreshCw size={16} className="animate-spin text-white" />
-                            <span>Processing YOLOv8...</span>
+                            <span>Analyzing YOLOv8... ({elapsedTimer}s)</span>
                           </>
                         ) : (
                           <>
@@ -664,11 +679,16 @@ export default function AIDetection({ backendStatus }) {
 
                 <MotionPulse3D pulseScale={1.02} pulseSpeed={4.2} depth={-10}>
                   <div className={`${cardBg} rounded-2xl p-4 shadow-md border flex flex-col justify-between h-full`}>
-                    <span className={`text-xs ${statLabel} block`}>Export</span>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs ${statLabel} block`}>Export</span>
+                      <span className="text-[10px] bg-emerald-500/10 text-emerald-500 font-bold px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        ⚡ {detectionDuration || imageResult.inference_time || '1.2'}s
+                      </span>
+                    </div>
                     <Click3D fullWidth scaleDown={0.93} depth={-10} tiltX={-3}>
                       <button
                         onClick={handleGenerateImagePdf}
-                        className="w-full inline-flex items-center justify-center gap-1.5 bg-[#ea580c] hover:bg-orange-500 text-white text-xs font-bold py-2 px-3 rounded-full transition-all shadow-md"
+                        className="w-full inline-flex items-center justify-center gap-1.5 bg-[#ea580c] hover:bg-orange-500 text-white text-xs font-bold py-2 px-3 rounded-full transition-all shadow-md mt-2"
                       >
                         <FileDown size={14} /> Download PDF
                       </button>
