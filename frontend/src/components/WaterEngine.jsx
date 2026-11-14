@@ -118,26 +118,16 @@ export function WaterRippleCanvas() {
       startLoop();
     };
 
-    // Global click listener to emit water ripples on user interaction
+    // Global click listener to emit subtle water ripples on user interaction
     const handleClick = (e) => {
-      addRipple(e.clientX, e.clientY, 1.0);
+      addRipple(e.clientX, e.clientY, 0.85);
     };
-
-    // Periodic ambient natural water droplets falling
-    const ambientInterval = setInterval(() => {
-      if (Math.random() > 0.35) {
-        const randomX = Math.random() * width;
-        const randomY = Math.random() * height;
-        addRipple(randomX, randomY, 0.5 + Math.random() * 0.35);
-      }
-    }, 3500);
 
     window.addEventListener('pointerdown', handleClick, { passive: true });
 
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('pointerdown', handleClick);
-      clearInterval(ambientInterval);
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
   }, [isDark]);

@@ -18,26 +18,14 @@ export function MotionPulse3D({
   return (
     <motion.div
       style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
-      animate={{
-        scale: [1, pulseScale, 1],
-        transition: {
-          duration: pulseSpeed,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        },
-      }}
       whileHover={{
-        scale: 1.03,
         y: -3,
-        z: 14,
-        transition: { type: 'spring', stiffness: 450, damping: 20 },
+        transition: { duration: 0.2, ease: 'easeOut' },
       }}
       whileTap={{
-        scale: 0.94,
-        z: depth,
-        y: 2,
-        rotateX: -4,
-        transition: { type: 'spring', stiffness: 600, damping: 15 },
+        scale: 0.96,
+        y: 1,
+        transition: { duration: 0.1, ease: 'easeOut' },
       }}
       onClick={onClick}
       className={`cursor-pointer ${className}`}
@@ -154,22 +142,12 @@ export function NebulaFrame({
 }) {
   return (
     <div className={`relative p-[1px] group ${rounded} ${className}`} {...props}>
-      {/* Animated Breathing Gradient Rim */}
-      <motion.div
-        animate={{
-          background: [
-            `linear-gradient(135deg, ${glowColor} 0%, transparent 50%, ${accentGlow} 100%)`,
-            `linear-gradient(225deg, ${accentGlow} 0%, transparent 50%, ${glowColor} 100%)`,
-            `linear-gradient(315deg, ${glowColor} 0%, transparent 50%, ${accentGlow} 100%)`,
-            `linear-gradient(135deg, ${glowColor} 0%, transparent 50%, ${accentGlow} 100%)`,
-          ],
+      {/* Ambient Gradient Rim with GPU-accelerated Hover Glow */}
+      <div
+        style={{
+          background: `linear-gradient(135deg, ${glowColor} 0%, transparent 50%, ${accentGlow} 100%)`,
         }}
-        transition={{
-          duration: 9,
-          repeat: Infinity,
-          ease: 'linear',
-        }}
-        className={`absolute inset-0 ${rounded} opacity-60 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`}
+        className={`absolute inset-0 ${rounded} opacity-40 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none`}
       />
 
       {/* Card Content Surface */}

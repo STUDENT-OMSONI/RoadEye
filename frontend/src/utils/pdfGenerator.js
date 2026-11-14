@@ -64,23 +64,30 @@ export async function generateDetectionPdf({
 
   let currentY = 48;
 
-  // Overview / Key Metrics Box
+  // Overview / Key Metrics Box (Clean 4-column balanced grid with vertical dividers)
   doc.setFillColor(248, 250, 252);
   doc.roundedRect(14, currentY, pageWidth - 28, 28, 2, 2, 'F');
   doc.setDrawColor(226, 232, 240);
   doc.roundedRect(14, currentY, pageWidth - 28, 28, 2, 2, 'S');
 
-  // Metric 1: Total Potholes
+  // Vertical column dividers
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(59.5, currentY + 4, 59.5, currentY + 24);
+  doc.line(105.0, currentY + 4, 105.0, currentY + 24);
+  doc.line(150.5, currentY + 4, 150.5, currentY + 24);
+
+  // Column 1: Total Potholes (Center = 36.75)
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
   doc.setTextColor(15, 23, 42);
-  doc.text(`${potholeCount}`, 30, currentY + 12);
-  doc.setFontSize(8);
+  doc.text(`${potholeCount}`, 36.75, currentY + 12, { align: 'center' });
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...slateText);
-  doc.text('Potholes Detected', 30, currentY + 18);
+  doc.text('Potholes Detected', 36.75, currentY + 18, { align: 'center' });
 
-  // Metric 2: Hazard Severity
+  // Column 2: Hazard Severity (Center = 82.25)
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   if (overallSeverity === 'High') {
@@ -90,34 +97,35 @@ export async function generateDetectionPdf({
   } else {
     doc.setTextColor(...greenLow);
   }
-  doc.text(`${overallSeverity.toUpperCase()}`, 85, currentY + 12);
-  doc.setFontSize(8);
+  doc.text(`${overallSeverity.toUpperCase()}`, 82.25, currentY + 12, { align: 'center' });
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...slateText);
-  doc.text('Overall Road Hazard Rating', 85, currentY + 18);
+  doc.text('Road Hazard Rating', 82.25, currentY + 18, { align: 'center' });
 
-  // Metric 3: Avg Confidence
+  // Column 3: Avg Confidence (Center = 127.75)
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(...blueElectric);
   const confFormatted = typeof confidence === 'number'
     ? `${(confidence > 1 ? confidence : confidence * 100).toFixed(1)}%`
     : `${confidence}`;
-  doc.text(`${confFormatted}`, 145, currentY + 12);
-  doc.setFontSize(8);
+  doc.text(`${confFormatted}`, 127.75, currentY + 12, { align: 'center' });
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...slateText);
-  doc.text('Avg YOLOv8 Confidence', 145, currentY + 18);
+  doc.text('Avg YOLOv8 Conf', 127.75, currentY + 18, { align: 'center' });
 
-  // Metric 4: Location / Sector
+  // Column 4: Location / Sector (Center = 173.25)
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(location.slice(0, 24), pageWidth - 22, currentY + 11, { align: 'right' });
-  doc.setFontSize(8);
+  const safeLoc = (location || 'Road Survey Section').slice(0, 20);
+  doc.text(safeLoc, 173.25, currentY + 12, { align: 'center' });
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...slateText);
-  doc.text('Survey Sector / Geo Tag', pageWidth - 22, currentY + 18, { align: 'right' });
+  doc.text('Survey Sector', 173.25, currentY + 18, { align: 'center' });
 
   currentY += 36;
 

@@ -30,20 +30,32 @@ export default function TiltCard3D({
   const glareX = useTransform(smoothMouseX, [-0.5, 0.5], ['0%', '100%']);
   const glareY = useTransform(smoothMouseY, [-0.5, 0.5], ['0%', '100%']);
 
+  const rectRef = useRef(null);
+
+  const handleMouseEnter = () => {
+    if (cardRef.current) {
+      rectRef.current = cardRef.current.getBoundingClientRect();
+    }
+    setIsHovered(true);
+  };
+
   const handleMouseMove = (e) => {
-    if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
+    if (!rectRef.current) {
+      if (cardRef.current) {
+        rectRef.current = cardRef.current.getBoundingClientRect();
+      } else {
+        return;
+      }
+    }
+    const rect = rectRef.current;
     const x = (e.clientX - rect.left) / rect.width - 0.5;
     const y = (e.clientY - rect.top) / rect.height - 0.5;
     mouseX.set(x);
     mouseY.set(y);
   };
 
-  const handleMouseEnter = () => {
-    setIsHovered(true);
-  };
-
   const handleMouseLeave = () => {
+    rectRef.current = null;
     setIsHovered(false);
     mouseX.set(0);
     mouseY.set(0);
