@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Detection Result</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <p class="eyebrow">Result</p>
+        <h1>Video Detection Result</h1>
+        <p>{{ original_name }}</p>
+
+        <div class="stat-row">
+            <div class="stat-chip">
+                <span class="value">{{ frame_count }}</span>
+                <span class="label">Frames</span>
+            </div>
+            <div class="stat-chip">
+                <span class="value">{{ frames_with_potholes }}</span>
+                <span class="label">Frames w/ Potholes</span>
+            </div>
+            <div class="stat-chip">
+                <span class="value">{{ total_detections }}</span>
+                <span class="label">Total Detections</span>
+            </div>
+            <div class="stat-chip">
+                <span class="value">{{ max_potholes_in_frame }}</span>
+                <span class="label">Max in One Frame</span>
+            </div>
+        </div>
+
+        <div class="media-box">
+            <video controls width="100%">
+                <source src="{{ output_video_url }}" type="video/mp4">
+                Your browser does not support video.
+            </video>
+        </div>
+
+        <div class="buttons">
+            <a class="btn" href="/download-report/{{ report_name }}">Download Report</a>
+            <a class="btn secondary" href="/">Go Back</a>
+        </div>
+    </div>
+</body>
+</html>

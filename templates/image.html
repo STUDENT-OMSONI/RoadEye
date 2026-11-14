@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Detection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="container">
+    <p class="eyebrow">Mode: Image</p>
+    <h1>Image Detection</h1>
+    <p>Upload a road photo. PNG, JPG, JPEG, or BMP.</p>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <form action="/predict-image" method="POST" enctype="multipart/form-data">
+        <div class="upload-zone">
+            <input type="file" name="image" accept="image/*" required>
+            <p style="margin:0; font-size:13px;">Drop a file in or click to browse</p>
+        </div>
+        <div class="buttons">
+            <button type="submit">Detect Potholes</button>
+            <a href="/" class="btn secondary">⬅ Back</a>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>

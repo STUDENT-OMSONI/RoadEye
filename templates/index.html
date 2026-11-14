@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pothole Detection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="container">
+    <p class="eyebrow">Road Surface Inspection</p>
+    <h1>Pothole Detection System</h1>
+    <p>Point a YOLOv8 model at the road. Choose how you want to scan it.</p>
+
+    <div class="lane-divider"></div>
+
+    <div class="option-container">
+
+        <a href="/image" class="option-card">
+            <span class="badge">📷</span>
+            <h2>Image Scan</h2>
+            <p>Upload a single photo and get a full detection report with confidence scores.</p>
+        </a>
+
+        <a href="/video" class="option-card">
+            <span class="badge">🎞</span>
+            <h2>Video Scan</h2>
+            <p>Upload a driving clip and detect potholes frame by frame.</p>
+        </a>
+
+        <a href="/webcam" class="option-card">
+            <span class="badge">🟡</span>
+            <h2>Live Feed</h2>
+            <p>Run detection on a live camera and capture a photo or clip on demand.</p>
+        </a>
+
+    </div>
+</div>
+
+</body>
+</html>

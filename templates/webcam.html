@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Webcam Detection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <p class="eyebrow">Mode: Live Feed</p>
+        <h1>Live Webcam Detection</h1>
+        <p>Detection runs continuously on the feed below. Capture a still or record a clip whenever you want a saved report.</p>
+
+        <div class="feed-frame">
+            <img id="feed" src="{{ url_for('webcam_feed') }}" alt="Live webcam feed" crossorigin="anonymous">
+            <span id="recIndicator" class="rec-indicator"><span class="rec-dot"></span>REC</span>
+        </div>
+
+        <div class="capture-controls">
+            <button id="captureBtn" type="button">📸 Capture Photo</button>
+            <button id="startBtn" type="button">⏺ Start Recording</button>
+            <button id="stopBtn" type="button" class="danger" disabled>⏹ Stop Recording</button>
+        </div>
+
+        <p id="status" class="capture-status"></p>
+
+        <div id="clipActions" class="buttons" style="display:none;">
+            <button id="analyzeBtn" type="button">Analyze Clip</button>
+            <a id="downloadBtn" class="btn secondary" download="webcam_capture.webm">Download Clip</a>
+        </div>
+
+        <div class="lane-divider"></div>
+
+        <div class="buttons">
+            <a class="btn secondary" href="/">⬅ Back</a>
+        </div>
+    </div>
+
+    <!-- Hidden canvas used to grab frames from the MJPEG <img> feed -->
+    <canvas id="captureCanvas" style="display:none;"></canvas>
+
+    <!-- Hidden forms that reuse the existing /predict-image and /predict-video pipeline -->
+    <form id="photoForm" action="/predict-image" method="POST" enctype="multipart/form-data" style="display:none;">
+        <input type="file" name="image" id="photoInput">
+    </form>
+    <form id="videoForm" action="/predict-video" method="POST" enctype="multipart/form-data" style="display:none;">
+        <input type="file" name="video" id="videoInput">
+    </form>
+
+    <script>
+        const feed = document.getElementById('feed');
+        const canvas = document.getElementById('captureCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById('status');
+        const recIndicator = document.getElementById('recIndicator');
+
+        const captureBtn = document.getElementById('captureBtn');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const clipActions = document.getElementById('clipActions');
+
+        let drawTimer = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recordedBlob = null;
+
+        // Continuously draw the current MJPEG frame onto the hidden canvas.
+        // This is what lets us grab a still image, and also what feeds
+        // canvas.captureStream() for video recording below.
+        function startFrameLoop() {
+            canvas.width = feed.naturalWidth || 640;
+            canvas.height = feed.naturalHeight || 480;
+            drawTimer = setInterval(() => {
+                if (feed.naturalWidth) {
+                    if (canvas.width !== feed.naturalWidth) {
+                        canvas.width = feed.naturalWidth;
+                        canvas.height = feed.naturalHeight;
+                    }
+                    ctx.drawImage(feed, 0, 0, canvas.width, canvas.height);
+                }
+            }, 80); // ~12fps
+        }
+
+        if (feed.complete) {
+            startFrameLoop();
+        } else {
+            feed.addEventListener('load', startFrameLoop, { once: true });
+        }
+
+        // --- Capture a still photo, then run it through the existing
+        //     image-detection pipeline (full report + result page). ---
+        captureBtn.addEventListener('click', () => {
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    statusEl.textContent = 'Could not capture a frame. Is the feed loaded?';
+                    return;
+                }
+                const dt = new DataTransfer();
+                dt.items.add(new File([blob], 'webcam_capture.png', { type: 'image/png' }));
+                document.getElementById('photoInput').files = dt.files;
+                statusEl.textContent = 'Photo captured — running detection…';
+                document.getElementById('photoForm').submit();
+            }, 'image/png');
+        });
+
+        // --- Start recording a clip from the live feed. ---
+        startBtn.addEventListener('click', () => {
+            if (!canvas.captureStream) {
+                statusEl.textContent = 'Video recording is not supported in this browser.';
+                return;
+            }
+            recordedChunks = [];
+            recordedBlob = null;
+            clipActions.style.display = 'none';
+
+            const stream = canvas.captureStream(15);
+            const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+                ? 'video/webm;codecs=vp9'
+                : 'video/webm';
+
+            mediaRecorder = new MediaRecorder(stream, { mimeType });
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+            };
+            mediaRecorder.onstop = () => {
+                recordedBlob = new Blob(recordedChunks, { type: 'video/webm' });
+                downloadBtn.href = URL.createObjectURL(recordedBlob);
+                clipActions.style.display = 'flex';
+                statusEl.textContent = 'Recording stopped. Analyze it or download the clip.';
+            };
+
+            mediaRecorder.start();
+            recIndicator.classList.add('active');
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            captureBtn.disabled = true;
+            statusEl.textContent = 'Recording…';
+        });
+
+        // --- Stop recording. ---
+        stopBtn.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            recIndicator.classList.remove('active');
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            captureBtn.disabled = false;
+        });
+
+        // --- Send the recorded clip through the existing video pipeline. ---
+        analyzeBtn.addEventListener('click', () => {
+            if (!recordedBlob) return;
+            const dt = new DataTransfer();
+            dt.items.add(new File([recordedBlob], 'webcam_capture.webm', { type: 'video/webm' }));
+            document.getElementById('videoInput').files = dt.files;
+            statusEl.textContent = 'Uploading clip for detection…';
+            document.getElementById('videoForm').submit();
+        });
+    </script>
+</body>
+</html>
