@@ -1,6 +1,9 @@
 services:
+  # ----------------------------------------------------------------------------
+  # 1. RoadEye AI Flask Backend (Render Free Web Service)
+  # ----------------------------------------------------------------------------
   - type: web
-    name: roadeye-ai-pothole-detection
+    name: roadeye-api
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
@@ -18,3 +21,19 @@ services:
         value: "1"
       - key: FLASK_DEBUG
         value: "0"
+
+  # ----------------------------------------------------------------------------
+  # 2. RoadEye React Frontend (Render Free Static Site on Global Edge CDN)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: roadeye-app
+    runtime: static
+    buildCommand: npm --prefix frontend install && npm --prefix frontend run build
+    staticPublishPath: ./frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: "" # Populate with your roadeye-api.onrender.com URL in Render Dashboard

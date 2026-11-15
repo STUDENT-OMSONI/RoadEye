@@ -3,6 +3,24 @@ import axios from 'axios';
 // Backend URL configured from environment or fallback to relative URL (supported by Vite proxy)
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
+/**
+ * Resolves API asset URLs (images/videos) so they point to the backend server
+ * when deployed as a separate Static Site on Render.
+ */
+export function resolveApiUrl(urlPath) {
+  if (!urlPath) return '';
+  if (
+    urlPath.startsWith('http://') ||
+    urlPath.startsWith('https://') ||
+    urlPath.startsWith('blob:') ||
+    urlPath.startsWith('data:')
+  ) {
+    return urlPath;
+  }
+  const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+  return base ? `${base}/${urlPath.replace(/^\/+/, '')}` : urlPath;
+}
+
 const client = axios.create({
   baseURL: BASE_URL,
   timeout: 120000, // 2 minutes for heavy video processing
@@ -175,6 +193,9 @@ export const api = {
 
     try {
       const response = await client.post('/api/predict-image', formData);
+      if (response.data && response.data.output_image_url) {
+        response.data.output_image_url = resolveApiUrl(response.data.output_image_url);
+      }
       return response.data;
     } catch (err) {
       // If Render instance was asleep (502, 503, 504), automatically retry once after a short 2.5s delay
@@ -212,6 +233,9 @@ export const api = {
           }
         },
       });
+      if (response.data && response.data.output_video_url) {
+        response.data.output_video_url = resolveApiUrl(response.data.output_video_url);
+      }
       return response.data;
     } catch (err) {
       if (
@@ -232,6 +256,12 @@ export const api = {
   async getReports() {
     try {
       const response = await client.get('/api/reports');
+      if (response.data && response.data.success && Array.isArray(response.data.data)) {
+        response.data.data = response.data.data.map((item) => ({
+          ...item,
+          outputUrl: resolveApiUrl(item.outputUrl)
+        }));
+      }
       return response.data;
     } catch (error) {
       console.warn('API /api/reports not yet available, falling back to mock placeholder data:', error.message);

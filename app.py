@@ -642,14 +642,38 @@ def download_report(report_name):
 
 
 # ------------------------------------------------------------------------------
-# 9. CORS Support
+# 9. CORS & Preflight Support (For Standalone Frontend / Render Static Site)
 # ------------------------------------------------------------------------------
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        res = Response()
+        res.headers["Access-Control-Allow-Origin"] = "*"
+        res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        res.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
+        res.headers["Access-Control-Max-Age"] = "86400"
+        return res, 204
+
+
 @app.after_request
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
     return response
+
+
+@app.route("/static/outputs/<path:filename>")
+def serve_output_file(filename):
+    """Explicit cross-origin output file server for detected images and videos."""
+    safe_name = secure_filename(filename)
+    out_path = OUTPUT_FOLDER / safe_name
+    if out_path.exists() and out_path.is_file():
+        response = send_file(out_path)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
+    return jsonify({"error": "Output file not found"}), 404
 
 
 # ------------------------------------------------------------------------------
